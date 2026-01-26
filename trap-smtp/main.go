@@ -68,6 +68,8 @@ func startHTTPServer(cfg *Config) {
 		r.Get("/entries", handlers.ListEntriesHandler)
 		r.Get("/entries/{id}", handlers.GetEntryHandler)
 		r.Get("/entries/{id}/raw", handlers.GetRawEntryHandler)
+		r.Get("/entries/{id}/attachments/{attachmentId}", handlers.GetAttachmentHandler)
+		r.Get("/entries/{id}/cid/{cid}", handlers.GetAttachmentByCIDHandler)
 		r.Delete("/entries/{id}", handlers.DeleteEntryHandler)
 		r.Delete("/entries", handlers.ClearEntriesHandler)
 		r.Get("/stats", handlers.StatsHandler)

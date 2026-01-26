@@ -7,6 +7,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// Attachment represents an email attachment
+type Attachment struct {
+	ID          string `json:"id"`           // Unique ID for download
+	Filename    string `json:"filename"`     // Original filename
+	ContentType string `json:"content_type"` // MIME type
+	Size        int    `json:"size"`         // Size in bytes
+	ContentID   string `json:"content_id"`   // Content-ID for inline images (cid:xxx)
+	IsInline    bool   `json:"is_inline"`    // True if inline attachment
+	Data        []byte `json:"-"`            // Binary data (not serialized to JSON)
+}
+
 // EmailEntry represents a single received email
 type EmailEntry struct {
 	ID         string    `json:"id"`
@@ -23,9 +34,14 @@ type EmailEntry struct {
 	ContentType string              `json:"content_type"`
 	Headers     map[string][]string `json:"headers"`
 
-	// Body
-	Body     string `json:"body"`
+	// Body content (parsed from MIME)
+	Body     string `json:"body"`      // Primary body (HTML if available, otherwise Text)
+	HtmlBody string `json:"html_body"` // HTML version (empty if not available)
+	TextBody string `json:"text_body"` // Plain text version (empty if not available)
 	RawEmail string `json:"raw_email"`
+
+	// Attachments
+	Attachments []Attachment `json:"attachments"`
 }
 
 // Store manages email entries in memory

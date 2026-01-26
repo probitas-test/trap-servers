@@ -226,6 +226,109 @@
             max-height: 400px;
             overflow: auto;
         }
+        .body-html {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            width: 100%;
+            height: 400px;
+        }
+        .content-type-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+            font-weight: normal;
+            pointer-events: none;
+        }
+        .content-type-badge.html {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        .content-type-badge.text {
+            background: #f5f5f5;
+            color: #666;
+        }
+        .body-subtabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 8px;
+        }
+        .body-subtab {
+            padding: 4px 12px;
+            border: 1px solid #e0e0e0;
+            background: #f5f5f5;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .body-subtab:first-child {
+            border-radius: 4px 0 0 4px;
+        }
+        .body-subtab:last-child {
+            border-radius: 0 4px 4px 0;
+            border-left: none;
+        }
+        .body-subtab.active {
+            background: #fff;
+            color: #333;
+            font-weight: 600;
+        }
+        .body-subtab-content {
+            display: none;
+        }
+        .body-subtab-content.active {
+            display: block;
+        }
+        .attachments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        .attachment-icon {
+            font-size: 1.2rem;
+        }
+        .attachment-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .attachment-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .attachment-meta {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        .attachment-download {
+            padding: 4px 12px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            font-size: 0.8rem;
+        }
+        .attachment-download:hover {
+            background: #f0f0f0;
+        }
+        .empty-attachments {
+            color: #999;
+            font-size: 0.9rem;
+            padding: 20px;
+            text-align: center;
+        }
         .tabs {
             display: flex;
             gap: 0;
@@ -334,6 +437,146 @@
             return div.innerHTML;
         }
 
+        function hasHtmlBody(entry) {
+            return entry.html_body && entry.html_body.length > 0;
+        }
+
+        function hasTextBody(entry) {
+            return entry.text_body && entry.text_body.length > 0;
+        }
+
+        function renderHtmlBody(entry) {
+            // Replace cid: references with API URLs
+            let html = entry.html_body || '';
+            if (entry.attachments) {
+                entry.attachments.forEach(att => {
+                    if (att.content_id) {
+                        const cidUrl = `/api/entries/${entry.id}/cid/${att.content_id}`;
+                        html = html.replace(new RegExp(`cid:${att.content_id}`, 'gi'), cidUrl);
+                    }
+                });
+            }
+            const escapedHtml = html.replace(/"/g, '&quot;');
+            return `<iframe class="body-html" sandbox="" srcdoc="${escapedHtml}"></iframe>`;
+        }
+
+        function renderTextBody(entry) {
+            return `<pre class="body-content">${escapeHtml(entry.text_body || entry.body)}</pre>`;
+        }
+
+        function hasAttachments(entry) {
+            return entry.attachments && entry.attachments.length > 0;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function renderAttachments(entry) {
+            if (!hasAttachments(entry)) {
+                return '<div class="empty-attachments">No attachments</div>';
+            }
+
+            return `
+                <div class="attachments-list">
+                    ${entry.attachments.map(att => `
+                        <div class="attachment-item">
+                            <span class="attachment-icon">${att.is_inline ? '🖼️' : '📎'}</span>
+                            <div class="attachment-info">
+                                <span class="attachment-name">${escapeHtml(att.filename || 'unnamed')}</span>
+                                <span class="attachment-meta">${escapeHtml(att.content_type)} · ${formatFileSize(att.size)}</span>
+                            </div>
+                            <a href="/api/entries/${entry.id}/attachments/${att.id}"
+                               class="attachment-download"
+                               download="${escapeHtml(att.filename || 'attachment')}"
+                               onclick="event.stopPropagation()">Download</a>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderBodyTabs(entry) {
+            const hasHtml = hasHtmlBody(entry);
+            const hasText = hasTextBody(entry);
+            const hasAtt = hasAttachments(entry);
+
+            let tabs = '';
+            let contents = '';
+
+            if (hasHtml && hasText) {
+                // Both HTML and Text
+                tabs = `
+                    <button class="tab active" onclick="switchTab('${entry.id}', 'html')">Body HTML</button>
+                    <button class="tab" onclick="switchTab('${entry.id}', 'text')">Body Text</button>
+                `;
+                contents = `
+                    <div class="tab-content active" id="${entry.id}-html">
+                        ${renderHtmlBody(entry)}
+                    </div>
+                    <div class="tab-content" id="${entry.id}-text">
+                        ${renderTextBody(entry)}
+                    </div>
+                `;
+            } else if (hasHtml) {
+                // HTML only
+                tabs = `<button class="tab active" onclick="switchTab('${entry.id}', 'html')">Body</button>`;
+                contents = `
+                    <div class="tab-content active" id="${entry.id}-html">
+                        ${renderHtmlBody(entry)}
+                    </div>
+                `;
+            } else {
+                // Text only
+                tabs = `<button class="tab active" onclick="switchTab('${entry.id}', 'text')">Body</button>`;
+                contents = `
+                    <div class="tab-content active" id="${entry.id}-text">
+                        ${renderTextBody(entry)}
+                    </div>
+                `;
+            }
+
+            // Add Attachments tab
+            if (hasAtt) {
+                tabs += `<button class="tab" onclick="switchTab('${entry.id}', 'attachments')">Attachments (${entry.attachments.length})</button>`;
+                contents += `
+                    <div class="tab-content" id="${entry.id}-attachments">
+                        ${renderAttachments(entry)}
+                    </div>
+                `;
+            }
+
+            return { tabs, contents };
+        }
+
+        function renderHeaders(entry) {
+            return Object.entries(entry.headers || {}).map(([k, v]) =>
+                '<tr><td>' + escapeHtml(k) + '</td><td>' + (Array.isArray(v) ? v.map(x => escapeHtml(x)).join(', ') : escapeHtml(v)) + '</td></tr>'
+            ).join('');
+        }
+
+        function renderFullTabs(entry) {
+            const bodyTabs = renderBodyTabs(entry);
+            return `
+                <div class="tabs">
+                    ${bodyTabs.tabs}
+                    <button class="tab" onclick="switchTab('${entry.id}', 'headers')">Headers</button>
+                    <button class="tab" onclick="switchTab('${entry.id}', 'raw')">Raw</button>
+                </div>
+                ${bodyTabs.contents}
+                <div class="tab-content" id="${entry.id}-headers">
+                    <table class="headers-table">
+                        ${renderHeaders(entry)}
+                    </table>
+                </div>
+                <div class="tab-content" id="${entry.id}-raw">
+                    <pre class="body-content">${escapeHtml(entry.raw_email)}</pre>
+                </div>
+            `;
+        }
+
         function renderEntries() {
             const container = document.getElementById('entries');
             const countEl = document.getElementById('count');
@@ -379,24 +622,7 @@
                         </div>
 
                         <div class="section">
-                            <div class="tabs">
-                                <button class="tab active" onclick="switchTab('${entry.id}', 'body')">Body</button>
-                                <button class="tab" onclick="switchTab('${entry.id}', 'headers')">Headers</button>
-                                <button class="tab" onclick="switchTab('${entry.id}', 'raw')">Raw</button>
-                            </div>
-                            <div class="tab-content active" id="${entry.id}-body">
-                                <pre class="body-content">${escapeHtml(entry.body)}</pre>
-                            </div>
-                            <div class="tab-content" id="${entry.id}-headers">
-                                <table class="headers-table">
-                                    ${Object.entries(entry.headers || {}).map(([k, v]) =>
-                                        `<tr><td>${escapeHtml(k)}</td><td>${Array.isArray(v) ? v.map(x => escapeHtml(x)).join(', ') : escapeHtml(v)}</td></tr>`
-                                    ).join('')}
-                                </table>
-                            </div>
-                            <div class="tab-content" id="${entry.id}-raw">
-                                <pre class="body-content">${escapeHtml(entry.raw_email)}</pre>
-                            </div>
+                            ${renderFullTabs(entry)}
                         </div>
                     </div>
                 </div>

@@ -497,3 +497,82 @@ func TestSession_RFC2047QuotedPrintable(t *testing.T) {
 		t.Errorf("Subject = %q, want %q", entry.Subject, expectedSubject)
 	}
 }
+
+func TestSession_MultipartAlternative(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+
+	_ = session.Mail("sender@example.com", &gosmtp.MailOptions{})
+	_ = session.Rcpt("recipient@example.com", &gosmtp.RcptOptions{})
+
+	// Multipart/alternative email with plain text and HTML parts
+	emailContent := "From: sender@example.com\r\n" +
+		"To: recipient@example.com\r\n" +
+		"Subject: Multipart Test\r\n" +
+		"Content-Type: multipart/alternative; boundary=\"boundary123\"\r\n" +
+		"\r\n" +
+		"--boundary123\r\n" +
+		"Content-Type: text/plain; charset=utf-8\r\n" +
+		"\r\n" +
+		"Plain text version\r\n" +
+		"--boundary123\r\n" +
+		"Content-Type: text/html; charset=utf-8\r\n" +
+		"\r\n" +
+		"<html><body><h1>HTML version</h1></body></html>\r\n" +
+		"--boundary123--\r\n"
+
+	err := session.Data(strings.NewReader(emailContent))
+	if err != nil {
+		t.Fatalf("Data() error = %v", err)
+	}
+
+	entries := s.List()
+	entry := entries[0]
+
+	// Should prefer HTML over plain text
+	if !strings.Contains(entry.Body, "<html>") {
+		t.Errorf("Body should contain HTML content, got: %q", entry.Body)
+	}
+	if !strings.Contains(entry.ContentType, "text/html") {
+		t.Errorf("ContentType should be text/html, got: %q", entry.ContentType)
+	}
+}
+
+func TestSession_MultipartBase64Encoded(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+
+	_ = session.Mail("sender@example.com", &gosmtp.MailOptions{})
+	_ = session.Rcpt("recipient@example.com", &gosmtp.RcptOptions{})
+
+	// Multipart email with base64 encoded HTML part
+	// "こんにちは" in base64 is "44GT44KT44Gr44Gh44Gv"
+	emailContent := "From: sender@example.com\r\n" +
+		"To: recipient@example.com\r\n" +
+		"Subject: Base64 Test\r\n" +
+		"Content-Type: multipart/alternative; boundary=\"bound\"\r\n" +
+		"\r\n" +
+		"--bound\r\n" +
+		"Content-Type: text/html; charset=utf-8\r\n" +
+		"Content-Transfer-Encoding: base64\r\n" +
+		"\r\n" +
+		"PGh0bWw+PGJvZHk+44GT44KT44Gr44Gh44GvPC9ib2R5PjwvaHRtbD4=\r\n" +
+		"--bound--\r\n"
+
+	err := session.Data(strings.NewReader(emailContent))
+	if err != nil {
+		t.Fatalf("Data() error = %v", err)
+	}
+
+	entries := s.List()
+	entry := entries[0]
+
+	// Body should be decoded from base64
+	if !strings.Contains(entry.Body, "こんにちは") {
+		t.Errorf("Body should contain decoded Japanese text, got: %q", entry.Body)
+	}
+}

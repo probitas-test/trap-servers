@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -134,4 +136,92 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 		"count": emailStore.Count(),
 	})
 	_, _ = w.Write(resp)
+}
+
+// GetAttachmentHandler returns an attachment by entry ID and attachment ID
+func GetAttachmentHandler(w http.ResponseWriter, r *http.Request) {
+	entryID := chi.URLParam(r, "id")
+	attachmentID := chi.URLParam(r, "attachmentId")
+
+	entry, ok := emailStore.Get(entryID)
+	if !ok {
+		http.Error(w, "Entry not found", http.StatusNotFound)
+		return
+	}
+
+	// Find attachment
+	for _, att := range entry.Attachments {
+		if att.ID == attachmentID {
+			// Determine content type
+			contentType := att.ContentType
+			if contentType == "" {
+				contentType = "application/octet-stream"
+			}
+
+			w.Header().Set("Content-Type", contentType)
+			if att.Filename != "" {
+				// Use mime.FormatMediaType to safely encode filename
+				disposition := mime.FormatMediaType("attachment", map[string]string{
+					"filename": att.Filename,
+				})
+				w.Header().Set("Content-Disposition", disposition)
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(len(att.Data)))
+			_, _ = w.Write(att.Data)
+			return
+		}
+	}
+
+	http.Error(w, "Attachment not found", http.StatusNotFound)
+}
+
+// allowedInlineContentTypes defines safe content types for inline display
+var allowedInlineContentTypes = []string{
+	"image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml", "image/bmp",
+}
+
+// isAllowedInlineType checks if content type is safe for inline display
+func isAllowedInlineType(contentType string) bool {
+	ct := strings.ToLower(strings.Split(contentType, ";")[0])
+	for _, allowed := range allowedInlineContentTypes {
+		if ct == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+// GetAttachmentByCIDHandler returns an inline attachment by Content-ID (for cid: references)
+func GetAttachmentByCIDHandler(w http.ResponseWriter, r *http.Request) {
+	entryID := chi.URLParam(r, "id")
+	cid := chi.URLParam(r, "cid")
+
+	entry, ok := emailStore.Get(entryID)
+	if !ok {
+		http.Error(w, "Entry not found", http.StatusNotFound)
+		return
+	}
+
+	// Find attachment by Content-ID
+	for _, att := range entry.Attachments {
+		if att.ContentID == cid {
+			contentType := att.ContentType
+			if contentType == "" {
+				contentType = "application/octet-stream"
+			}
+
+			// Only allow safe image types for inline content
+			if !isAllowedInlineType(contentType) {
+				http.Error(w, "Content type not allowed for inline display", http.StatusForbidden)
+				return
+			}
+
+			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Cache-Control", "max-age=3600")
+			_, _ = w.Write(att.Data)
+			return
+		}
+	}
+
+	http.Error(w, "Attachment not found", http.StatusNotFound)
 }

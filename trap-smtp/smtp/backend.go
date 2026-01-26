@@ -2,13 +2,18 @@ package smtp
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"io"
 	"mime"
+	"mime/multipart"
+	"mime/quotedprintable"
 	"net/mail"
+	"strings"
 
 	"github.com/emersion/go-sasl"
 	"github.com/emersion/go-smtp"
+	"github.com/google/uuid"
 
 	"github.com/probitas-test/state-servers/state-smtp/store"
 )
@@ -175,20 +180,30 @@ func (s *Session) Data(r io.Reader) error {
 		return ""
 	}
 
-	// Read body
-	body, _ := io.ReadAll(msg.Body)
+	// Read and parse body (handles multipart MIME)
+	rawBody, _ := io.ReadAll(msg.Body)
+	parsed := parseEmailBody(rawBody, getHeader("Content-Type"))
 
-	// Create entry with decoded headers
+	// Determine primary body (prefer HTML over text)
+	primaryBody := parsed.htmlBody
+	if primaryBody == "" {
+		primaryBody = parsed.textBody
+	}
+
+	// Create entry with decoded headers and parsed body
 	entry := &store.EmailEntry{
 		From:        s.from,
 		To:          s.to,
 		Subject:     getHeader("Subject"),
 		Date:        getHeader("Date"),
 		MessageID:   getHeader("Message-Id"),
-		ContentType: getHeader("Content-Type"),
+		ContentType: parsed.contentType,
 		Headers:     headers,
-		Body:        string(body),
+		Body:        primaryBody,
+		HtmlBody:    parsed.htmlBody,
+		TextBody:    parsed.textBody,
 		RawEmail:    string(raw),
+		Attachments: parsed.attachments,
 	}
 
 	s.backend.store.Add(entry)
@@ -215,4 +230,176 @@ func decodeRFC2047(s string) string {
 		return s // Return original if decoding fails
 	}
 	return decoded
+}
+
+// parsedBody holds the result of MIME body parsing
+type parsedBody struct {
+	htmlBody    string
+	textBody    string
+	contentType string // Content-Type of the primary body (HTML if available)
+	attachments []store.Attachment
+}
+
+// parseEmailBody extracts body content and attachments from an email
+// For multipart emails, it extracts HTML, plain text, and attachments
+func parseEmailBody(body []byte, contentType string) parsedBody {
+	var result parsedBody
+	parseMultipart(body, contentType, &result)
+	return result
+}
+
+// parseMultipart recursively parses multipart MIME content
+func parseMultipart(body []byte, contentType string, result *parsedBody) {
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		result.textBody = string(body)
+		result.contentType = contentType
+		return
+	}
+
+	// Handle multipart messages
+	if strings.HasPrefix(mediaType, "multipart/") {
+		boundary := params["boundary"]
+		if boundary == "" {
+			result.textBody = string(body)
+			result.contentType = contentType
+			return
+		}
+
+		reader := multipart.NewReader(bytes.NewReader(body), boundary)
+
+		for {
+			part, err := reader.NextPart()
+			if err != nil {
+				break
+			}
+
+			partContentType := part.Header.Get("Content-Type")
+			partMediaType, partParams, _ := mime.ParseMediaType(partContentType)
+			partBody, err := io.ReadAll(part)
+			if err != nil {
+				continue
+			}
+
+			// Handle nested multipart
+			if strings.HasPrefix(partMediaType, "multipart/") {
+				parseMultipart(partBody, partContentType, result)
+				continue
+			}
+
+			// Check Content-Disposition
+			disposition := part.Header.Get("Content-Disposition")
+			contentID := strings.Trim(part.Header.Get("Content-Id"), "<>")
+
+			isAttachment := strings.HasPrefix(disposition, "attachment")
+			isInline := strings.HasPrefix(disposition, "inline") || contentID != ""
+
+			if isAttachment || (isInline && !strings.HasPrefix(partMediaType, "text/")) {
+				// This is an attachment or inline image
+				decodedData := decodeTransferEncodingBytes(partBody, part.Header.Get("Content-Transfer-Encoding"))
+
+				filename := getFilename(disposition, partParams)
+				if filename == "" && contentID != "" {
+					filename = contentID
+				}
+
+				attachment := store.Attachment{
+					ID:          generateAttachmentID(),
+					Filename:    filename,
+					ContentType: partContentType,
+					Size:        len(decodedData),
+					ContentID:   contentID,
+					IsInline:    isInline && contentID != "",
+					Data:        decodedData,
+				}
+				result.attachments = append(result.attachments, attachment)
+			} else if strings.HasPrefix(partMediaType, "text/html") {
+				decoded := decodeTransferEncoding(partBody, part.Header.Get("Content-Transfer-Encoding"))
+				result.htmlBody = decoded
+				result.contentType = partContentType
+			} else if strings.HasPrefix(partMediaType, "text/plain") {
+				decoded := decodeTransferEncoding(partBody, part.Header.Get("Content-Transfer-Encoding"))
+				result.textBody = decoded
+				if result.contentType == "" {
+					result.contentType = partContentType
+				}
+			}
+		}
+		return
+	}
+
+	// Single part message
+	decoded := decodeTransferEncoding(body, "")
+	if strings.HasPrefix(mediaType, "text/html") {
+		result.htmlBody = decoded
+		result.contentType = contentType
+	} else {
+		result.textBody = decoded
+		result.contentType = contentType
+	}
+}
+
+// getFilename extracts filename from Content-Disposition or Content-Type params
+func getFilename(disposition string, params map[string]string) string {
+	// Try Content-Disposition filename parameter
+	_, dispParams, err := mime.ParseMediaType(disposition)
+	if err == nil {
+		if name := dispParams["filename"]; name != "" {
+			return decodeRFC2047(name)
+		}
+	}
+	// Try Content-Type name parameter
+	if name := params["name"]; name != "" {
+		return decodeRFC2047(name)
+	}
+	return ""
+}
+
+// generateAttachmentID creates a unique ID for attachments using UUID
+func generateAttachmentID() string {
+	return uuid.New().String()
+}
+
+// decodeTransferEncodingBytes decodes base64 or quoted-printable content to bytes
+func decodeTransferEncodingBytes(body []byte, encoding string) []byte {
+	encoding = strings.ToLower(strings.TrimSpace(encoding))
+
+	switch encoding {
+	case "base64":
+		decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(body)))
+		if err != nil {
+			return body
+		}
+		return decoded
+	case "quoted-printable":
+		decoded, err := io.ReadAll(quotedprintable.NewReader(bytes.NewReader(body)))
+		if err != nil {
+			return body
+		}
+		return decoded
+	default:
+		return body
+	}
+}
+
+// decodeTransferEncoding decodes base64 or quoted-printable content
+func decodeTransferEncoding(body []byte, encoding string) string {
+	encoding = strings.ToLower(strings.TrimSpace(encoding))
+
+	switch encoding {
+	case "base64":
+		decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(body)))
+		if err != nil {
+			return string(body)
+		}
+		return string(decoded)
+	case "quoted-printable":
+		decoded, err := io.ReadAll(quotedprintable.NewReader(bytes.NewReader(body)))
+		if err != nil {
+			return string(body)
+		}
+		return string(decoded)
+	default:
+		return string(body)
+	}
 }
