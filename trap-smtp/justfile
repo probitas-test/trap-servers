@@ -1,0 +1,32 @@
+[private]
+default:
+    @just --list
+
+# Run linter
+lint:
+    golangci-lint run ./...
+
+# Run tests
+test:
+    go test -v ./...
+
+# Build binary
+build:
+    go build -o trap-smtp .
+
+# Format code
+fmt:
+    go fmt ./...
+    goimports -w .
+
+# Clean build artifacts
+clean:
+    rm -f trap-smtp
+
+# Tidy dependencies
+tidy:
+    go mod tidy
+
+# Run the server locally
+run:
+    go run .

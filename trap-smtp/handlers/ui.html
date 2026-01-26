@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMTP Receiver</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #fff;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .doc-link {
+            font-size: 0.85rem;
+            color: #666;
+            text-decoration: none;
+            padding: 4px 10px;
+            border: 1px solid #ddd;
+        }
+        .doc-link:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+        .config-box {
+            background: #f5f5f5;
+            padding: 10px 12px;
+            border: 1px solid #e0e0e0;
+            font-size: 0.9rem;
+        }
+        .config-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 4px;
+            align-items: center;
+        }
+        .config-item:last-child {
+            margin-bottom: 0;
+        }
+        .config-label {
+            color: #666;
+            width: 60px;
+            font-weight: 600;
+        }
+        .config-value {
+            flex: 1;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .toolbar button {
+            background: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .toolbar button:hover {
+            background: #f5f5f5;
+        }
+        .count {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .status {
+            margin-left: auto;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            border: 1px solid #ccc;
+        }
+        .status.connected {
+            background: #e8f5e9;
+            border-color: #a5d6a7;
+            color: #2e7d32;
+        }
+        .status.disconnected {
+            background: #ffebee;
+            border-color: #ef9a9a;
+            color: #c62828;
+        }
+        .entries {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background: #e0e0e0;
+            border: 1px solid #e0e0e0;
+        }
+        .entry {
+            background: white;
+        }
+        .entry-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            gap: 15px;
+            flex-wrap: wrap;
+            cursor: pointer;
+        }
+        .entry-header:hover {
+            background: #fafafa;
+        }
+        .email-icon {
+            color: #999;
+        }
+        .email-subject {
+            font-weight: 600;
+            flex: 1;
+            min-width: 150px;
+        }
+        .email-from {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        .timestamp {
+            color: #999;
+            font-size: 0.8rem;
+        }
+        .entry-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .entry-actions button {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 2px 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .entry-actions button:hover {
+            background: #f5f5f5;
+        }
+        .entry-actions button.delete:hover {
+            background: #ffebee;
+            border-color: #ef9a9a;
+        }
+        .entry-body {
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        .section {
+            margin-bottom: 15px;
+        }
+        .section:last-child {
+            margin-bottom: 0;
+        }
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .email-meta {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 15px;
+            font-size: 0.9rem;
+        }
+        .email-meta dt {
+            font-weight: 600;
+            color: #555;
+        }
+        .email-meta dd {
+            word-break: break-all;
+        }
+        .headers-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .headers-table td {
+            padding: 4px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: top;
+        }
+        .headers-table td:first-child {
+            font-weight: 600;
+            width: 180px;
+            color: #555;
+        }
+        .body-content {
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow: auto;
+        }
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .tab {
+            padding: 6px 14px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+        .tab:hover {
+            color: #333;
+        }
+        .tab.active {
+            color: #333;
+            font-weight: 600;
+            border-bottom-color: #333;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+            background: #fff;
+        }
+        .empty-state h2 {
+            font-weight: 500;
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+        .entry-id {
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+        .collapsed .entry-body {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-row">
+                <h1>SMTP Receiver</h1>
+                <a href="/doc" class="doc-link">API Docs</a>
+            </div>
+            <div class="config-box">
+                <div class="config-item">
+                    <span class="config-label">SMTP:</span>
+                    <span class="config-value" id="smtp-config"></span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">Usage:</span>
+                    <span class="config-value">Send emails to any address @<span id="domain"></span></span>
+                </div>
+            </div>
+        </header>
+
+        <div class="toolbar">
+            <button onclick="clearAll()">Clear All</button>
+            <span class="count" id="count">0 emails</span>
+            <div class="status disconnected" id="status">Connecting...</div>
+        </div>
+
+        <div class="entries" id="entries">
+            <div class="empty-state">
+                <h2>No emails received yet</h2>
+                <p>Send an email to the SMTP server to see it here</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const host = window.location.hostname;
+        const smtpPort = '{{SMTP_PORT}}';
+        document.getElementById('smtp-config').textContent = `${host}:${smtpPort}`;
+        document.getElementById('domain').textContent = host;
+
+        let entries = [];
+        let eventSource;
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderEntries() {
+            const container = document.getElementById('entries');
+            const countEl = document.getElementById('count');
+
+            countEl.textContent = `${entries.length} email${entries.length !== 1 ? 's' : ''}`;
+
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h2>No emails received yet</h2>
+                        <p>Send an email to the SMTP server to see it here</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = entries.map(entry => `
+                <div class="entry collapsed" id="entry-${entry.id}">
+                    <div class="entry-header" onclick="toggleEntry('${entry.id}')">
+                        <span class="email-icon">✉</span>
+                        <span class="email-subject">${escapeHtml(entry.subject) || '(No Subject)'}</span>
+                        <span class="email-from">From: ${escapeHtml(entry.from)}</span>
+                        <span class="entry-id">${entry.id}</span>
+                        <span class="timestamp">${formatDate(entry.received_at)}</span>
+                        <div class="entry-actions">
+                            <button onclick="event.stopPropagation(); downloadRaw('${entry.id}')">Download</button>
+                            <button class="delete" onclick="event.stopPropagation(); deleteEntry('${entry.id}')">Delete</button>
+                        </div>
+                    </div>
+                    <div class="entry-body">
+                        <div class="section">
+                            <div class="section-title">Envelope</div>
+                            <dl class="email-meta">
+                                <dt>From</dt>
+                                <dd>${escapeHtml(entry.from)}</dd>
+                                <dt>To</dt>
+                                <dd>${(entry.to || []).map(t => escapeHtml(t)).join(', ')}</dd>
+                                <dt>Subject</dt>
+                                <dd>${escapeHtml(entry.subject) || '(No Subject)'}</dd>
+                                <dt>Date</dt>
+                                <dd>${escapeHtml(entry.date)}</dd>
+                            </dl>
+                        </div>
+
+                        <div class="section">
+                            <div class="tabs">
+                                <button class="tab active" onclick="switchTab('${entry.id}', 'body')">Body</button>
+                                <button class="tab" onclick="switchTab('${entry.id}', 'headers')">Headers</button>
+                                <button class="tab" onclick="switchTab('${entry.id}', 'raw')">Raw</button>
+                            </div>
+                            <div class="tab-content active" id="${entry.id}-body">
+                                <pre class="body-content">${escapeHtml(entry.body)}</pre>
+                            </div>
+                            <div class="tab-content" id="${entry.id}-headers">
+                                <table class="headers-table">
+                                    ${Object.entries(entry.headers || {}).map(([k, v]) =>
+                                        `<tr><td>${escapeHtml(k)}</td><td>${Array.isArray(v) ? v.map(x => escapeHtml(x)).join(', ') : escapeHtml(v)}</td></tr>`
+                                    ).join('')}
+                                </table>
+                            </div>
+                            <div class="tab-content" id="${entry.id}-raw">
+                                <pre class="body-content">${escapeHtml(entry.raw_email)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleEntry(id) {
+            const el = document.getElementById(`entry-${id}`);
+            el.classList.toggle('collapsed');
+        }
+
+        function switchTab(entryId, tab) {
+            const entry = document.getElementById(`entry-${entryId}`);
+            entry.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            entry.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${entryId}-${tab}`).classList.add('active');
+        }
+
+        function downloadRaw(id) {
+            window.open(`/api/entries/${id}/raw`, '_blank');
+        }
+
+        async function deleteEntry(id) {
+            await fetch(`/api/entries/${id}`, { method: 'DELETE' });
+            entries = entries.filter(e => e.id !== id);
+            renderEntries();
+        }
+
+        async function clearAll() {
+            if (!confirm('Delete all emails?')) return;
+            await fetch('/api/entries', { method: 'DELETE' });
+            entries = [];
+            renderEntries();
+        }
+
+        async function loadEntries() {
+            const res = await fetch('/api/entries');
+            entries = await res.json();
+            renderEntries();
+        }
+
+        function connectSSE() {
+            const statusEl = document.getElementById('status');
+
+            eventSource = new EventSource('/api/events');
+
+            eventSource.onopen = () => {
+                statusEl.className = 'status connected';
+                statusEl.textContent = 'Live';
+            };
+
+            eventSource.onerror = () => {
+                statusEl.className = 'status disconnected';
+                statusEl.textContent = 'Reconnecting...';
+            };
+
+            eventSource.addEventListener('email', (e) => {
+                const entry = JSON.parse(e.data);
+                entries.unshift(entry);
+                renderEntries();
+            });
+        }
+
+        // Initialize
+        loadEntries();
+        connectSSE();
+    </script>
+</body>
+</html>
