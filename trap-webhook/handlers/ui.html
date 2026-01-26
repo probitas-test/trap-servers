@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Receiver</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #fff;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .doc-link {
+            font-size: 0.85rem;
+            color: #666;
+            text-decoration: none;
+            padding: 4px 10px;
+            border: 1px solid #ddd;
+        }
+        .doc-link:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+        .url-box {
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border: 1px solid #e0e0e0;
+            font-family: monospace;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .url-box code {
+            flex: 1;
+            word-break: break-all;
+        }
+        .url-box button {
+            background: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .url-box button:hover {
+            background: #f5f5f5;
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .toolbar button {
+            background: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .toolbar button:hover {
+            background: #f5f5f5;
+        }
+        .count {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .status {
+            margin-left: auto;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            border: 1px solid #ccc;
+        }
+        .status.connected {
+            background: #e8f5e9;
+            border-color: #a5d6a7;
+            color: #2e7d32;
+        }
+        .status.disconnected {
+            background: #ffebee;
+            border-color: #ef9a9a;
+            color: #c62828;
+        }
+        .entries {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background: #e0e0e0;
+            border: 1px solid #e0e0e0;
+        }
+        .entry {
+            background: white;
+        }
+        .entry-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            gap: 15px;
+            flex-wrap: wrap;
+            cursor: pointer;
+        }
+        .entry-header:hover {
+            background: #fafafa;
+        }
+        .method {
+            padding: 2px 8px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            font-family: monospace;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+        }
+        .path {
+            font-family: monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+        .timestamp {
+            color: #999;
+            font-size: 0.8rem;
+            margin-left: auto;
+        }
+        .entry-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .entry-actions button {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 2px 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .entry-actions button:hover {
+            background: #f5f5f5;
+        }
+        .entry-actions button.delete:hover {
+            background: #ffebee;
+            border-color: #ef9a9a;
+        }
+        .entry-body {
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        .section {
+            margin-bottom: 15px;
+        }
+        .section:last-child {
+            margin-bottom: 0;
+        }
+        .section-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .headers-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .headers-table td {
+            padding: 4px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: top;
+        }
+        .headers-table td:first-child {
+            font-weight: 600;
+            width: 180px;
+            color: #555;
+        }
+        .body-content {
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow: auto;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+            background: #fff;
+        }
+        .empty-state h2 {
+            font-weight: 500;
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+        .entry-id {
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+        .collapsed .entry-body {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-row">
+                <h1>Webhook Receiver</h1>
+                <a href="/doc" class="doc-link">API Docs</a>
+            </div>
+            <div class="url-box">
+                <code id="webhook-url"></code>
+                <button onclick="copyUrl()">Copy</button>
+            </div>
+        </header>
+
+        <div class="toolbar">
+            <button onclick="clearAll()">Clear All</button>
+            <span class="count" id="count">0 webhooks</span>
+            <div class="status disconnected" id="status">Connecting...</div>
+        </div>
+
+        <div class="entries" id="entries">
+            <div class="empty-state">
+                <h2>No webhooks received yet</h2>
+                <p>Send a request to the URL above to see it here</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const webhookUrl = `${window.location.origin}/webhook/`;
+        document.getElementById('webhook-url').textContent = webhookUrl;
+
+        let entries = [];
+        let eventSource;
+
+        function copyUrl() {
+            navigator.clipboard.writeText(webhookUrl);
+            const btn = event.target;
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 1500);
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        }
+
+        function renderEntries() {
+            const container = document.getElementById('entries');
+            const countEl = document.getElementById('count');
+
+            countEl.textContent = `${entries.length} webhook${entries.length !== 1 ? 's' : ''}`;
+
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h2>No webhooks received yet</h2>
+                        <p>Send a request to the URL above to see it here</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = entries.map(entry => `
+                <div class="entry" id="entry-${entry.id}">
+                    <div class="entry-header" onclick="toggleEntry('${entry.id}')">
+                        <span class="method">${entry.method}</span>
+                        <span class="path">${entry.path}${entry.query_string ? '?' + entry.query_string : ''}</span>
+                        <span class="entry-id">${entry.id}</span>
+                        <span class="timestamp">${formatDate(entry.received_at)}</span>
+                        <div class="entry-actions">
+                            <button onclick="event.stopPropagation(); copyEntry('${entry.id}')">Copy</button>
+                            <button class="delete" onclick="event.stopPropagation(); deleteEntry('${entry.id}')">Delete</button>
+                        </div>
+                    </div>
+                    <div class="entry-body">
+                        <div class="section">
+                            <div class="section-title">Headers</div>
+                            <table class="headers-table">
+                                ${Object.entries(entry.headers || {}).map(([k, v]) =>
+                                    `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(Array.isArray(v) ? v.join(', ') : v)}</td></tr>`
+                                ).join('')}
+                            </table>
+                        </div>
+                        ${entry.body ? `
+                        <div class="section">
+                            <div class="section-title">Body</div>
+                            <pre class="body-content">${escapeHtml(formatBody(entry.body, entry.content_type))}</pre>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function formatBody(body, contentType) {
+            if (contentType && contentType.includes('json')) {
+                try {
+                    return JSON.stringify(JSON.parse(body), null, 2);
+                } catch (e) {}
+            }
+            return body;
+        }
+
+        function toggleEntry(id) {
+            const el = document.getElementById(`entry-${id}`);
+            el.classList.toggle('collapsed');
+        }
+
+        function copyEntry(id) {
+            const entry = entries.find(e => e.id === id);
+            if (entry) {
+                navigator.clipboard.writeText(JSON.stringify(entry, null, 2));
+            }
+        }
+
+        async function deleteEntry(id) {
+            await fetch(`/api/entries/${id}`, { method: 'DELETE' });
+            entries = entries.filter(e => e.id !== id);
+            renderEntries();
+        }
+
+        async function clearAll() {
+            if (!confirm('Delete all webhooks?')) return;
+            await fetch('/api/entries', { method: 'DELETE' });
+            entries = [];
+            renderEntries();
+        }
+
+        async function loadEntries() {
+            const res = await fetch('/api/entries');
+            entries = await res.json();
+            renderEntries();
+        }
+
+        function connectSSE() {
+            const statusEl = document.getElementById('status');
+
+            eventSource = new EventSource('/api/events');
+
+            eventSource.onopen = () => {
+                statusEl.className = 'status connected';
+                statusEl.textContent = 'Live';
+            };
+
+            eventSource.onerror = () => {
+                statusEl.className = 'status disconnected';
+                statusEl.textContent = 'Reconnecting...';
+            };
+
+            eventSource.addEventListener('webhook', (e) => {
+                const entry = JSON.parse(e.data);
+                entries.unshift(entry);
+                renderEntries();
+            });
+        }
+
+        // Initialize
+        loadEntries();
+        connectSSE();
+    </script>
+</body>
+</html>
