@@ -1,0 +1,16 @@
+.DS_Store
+.worktrees
+
+# Nix
+result
+.direnv/
+
+# Build artifacts
+trap-smtp/trap-smtp
+trap-webhook/trap-webhook
+
+# Environment
+.env
+.envrc
+
+.playwright-mcp/
