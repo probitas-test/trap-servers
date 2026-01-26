@@ -277,8 +277,8 @@ func TestSession_Auth_NoAuth_LOGIN_AcceptsAnything(t *testing.T) {
 	}
 
 	// Step through LOGIN flow with random credentials
-	_, _, _ = server.Next(nil)                      // Get username prompt
-	_, _, _ = server.Next([]byte("randomuser"))     // Send random username
+	_, _, _ = server.Next(nil)                        // Get username prompt
+	_, _, _ = server.Next([]byte("randomuser"))       // Send random username
 	_, done, err := server.Next([]byte("randompass")) // Send random password
 
 	if err != nil {
@@ -386,8 +386,8 @@ func TestSession_Auth_LOGIN_InvalidCredentials(t *testing.T) {
 	server, _ := authSession.Auth(sasl.Login)
 
 	// Step through the LOGIN flow with wrong credentials
-	_, _, _ = server.Next(nil)                  // Get username prompt
-	_, _, _ = server.Next([]byte("wronguser"))  // Send wrong username
+	_, _, _ = server.Next(nil)                    // Get username prompt
+	_, _, _ = server.Next([]byte("wronguser"))    // Send wrong username
 	_, _, err := server.Next([]byte("wrongpass")) // Send wrong password
 
 	if err == nil {
