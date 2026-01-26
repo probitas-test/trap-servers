@@ -1,0 +1,41 @@
+name: Build trap-smtp
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "trap-smtp/**"
+      - "flake.*"
+      - ".github/workflows/build.trap-smtp.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "trap-smtp/**"
+      - "flake.*"
+      - ".github/workflows/build.trap-smtp.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: nixbuild/nix-quick-install-action@v34
+      - run: nix develop -c just trap-smtp::lint
+      - run: nix develop -c just trap-smtp::fmt
+      - run: git diff --exit-code
+
+  test:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: nixbuild/nix-quick-install-action@v34
+      - run: nix develop -c just trap-smtp::test
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: nixbuild/nix-quick-install-action@v34
+      - run: nix develop -c just trap-smtp::build
