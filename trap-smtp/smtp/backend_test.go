@@ -407,3 +407,93 @@ func TestSession_Auth_UnknownMechanism(t *testing.T) {
 		t.Error("Auth() should return error for unknown mechanism")
 	}
 }
+
+func TestSession_RFC2047EncodedHeaders(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+
+	_ = session.Mail("sender@example.com", &gosmtp.MailOptions{})
+	_ = session.Rcpt("recipient@example.com", &gosmtp.RcptOptions{})
+
+	// Email with RFC 2047 encoded headers (Base64 UTF-8)
+	// =?UTF-8?B?44Oh44O844Or44Ki44OJ44Os44K544Gu6KqN6Ki8?= decodes to "メールアドレスの認証"
+	// =?UTF-8?B?QXJyb3ZlICjplovnmbrnkrDlooPvvIk=?= decodes to "Arrove (開発環境）"
+	// =?UTF-8?B?55Sw5Lit6Iqx5a2Q?= decodes to "田中花子"
+	emailContent := "From: =?UTF-8?B?QXJyb3ZlICjplovnmbrnkrDlooPvvIk=?= <noreply@example.com>\r\n" +
+		"To: =?UTF-8?B?55Sw5Lit6Iqx5a2Q?= <recipient@example.com>\r\n" +
+		"Subject: =?UTF-8?B?44Oh44O844Or44Ki44OJ44Os44K544Gu6KqN6Ki8?=\r\n" +
+		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"\r\n" +
+		"こんにちは"
+
+	err := session.Data(strings.NewReader(emailContent))
+	if err != nil {
+		t.Fatalf("Data() error = %v", err)
+	}
+
+	entries := s.List()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+
+	entry := entries[0]
+
+	// Subject should be decoded
+	expectedSubject := "メールアドレスの認証"
+	if entry.Subject != expectedSubject {
+		t.Errorf("Subject = %q, want %q", entry.Subject, expectedSubject)
+	}
+
+	// From header in headers map should be decoded
+	fromHeaders, ok := entry.Headers["From"]
+	if !ok || len(fromHeaders) == 0 {
+		t.Fatal("From header not found in headers map")
+	}
+	expectedFrom := "Arrove (開発環境） <noreply@example.com>"
+	if fromHeaders[0] != expectedFrom {
+		t.Errorf("Headers[From] = %q, want %q", fromHeaders[0], expectedFrom)
+	}
+
+	// To header in headers map should be decoded
+	toHeaders, ok := entry.Headers["To"]
+	if !ok || len(toHeaders) == 0 {
+		t.Fatal("To header not found in headers map")
+	}
+	expectedTo := "田中花子 <recipient@example.com>"
+	if toHeaders[0] != expectedTo {
+		t.Errorf("Headers[To] = %q, want %q", toHeaders[0], expectedTo)
+	}
+}
+
+func TestSession_RFC2047QuotedPrintable(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+
+	_ = session.Mail("sender@example.com", &gosmtp.MailOptions{})
+	_ = session.Rcpt("recipient@example.com", &gosmtp.RcptOptions{})
+
+	// Email with RFC 2047 encoded Subject (Quoted-Printable UTF-8)
+	// =?UTF-8?Q?=E3=83=86=E3=82=B9=E3=83=88?= decodes to "テスト"
+	emailContent := "From: sender@example.com\r\n" +
+		"To: recipient@example.com\r\n" +
+		"Subject: =?UTF-8?Q?=E3=83=86=E3=82=B9=E3=83=88?=\r\n" +
+		"\r\n" +
+		"Test body"
+
+	err := session.Data(strings.NewReader(emailContent))
+	if err != nil {
+		t.Fatalf("Data() error = %v", err)
+	}
+
+	entries := s.List()
+	entry := entries[0]
+
+	expectedSubject := "テスト"
+	if entry.Subject != expectedSubject {
+		t.Errorf("Subject = %q, want %q", entry.Subject, expectedSubject)
+	}
+}

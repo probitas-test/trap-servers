@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"mime"
 	"net/mail"
 
 	"github.com/emersion/go-sasl"
@@ -156,23 +157,35 @@ func (s *Session) Data(r io.Reader) error {
 		return nil
 	}
 
-	// Extract headers
+	// Extract and decode headers (RFC 2047)
 	headers := make(map[string][]string)
 	for k, v := range msg.Header {
-		headers[k] = v
+		decodedValues := make([]string, len(v))
+		for i, val := range v {
+			decodedValues[i] = decodeRFC2047(val)
+		}
+		headers[k] = decodedValues
+	}
+
+	// Helper to get first decoded header value
+	getHeader := func(key string) string {
+		if vals, ok := headers[key]; ok && len(vals) > 0 {
+			return vals[0]
+		}
+		return ""
 	}
 
 	// Read body
 	body, _ := io.ReadAll(msg.Body)
 
-	// Create entry
+	// Create entry with decoded headers
 	entry := &store.EmailEntry{
 		From:        s.from,
 		To:          s.to,
-		Subject:     msg.Header.Get("Subject"),
-		Date:        msg.Header.Get("Date"),
-		MessageID:   msg.Header.Get("Message-ID"),
-		ContentType: msg.Header.Get("Content-Type"),
+		Subject:     getHeader("Subject"),
+		Date:        getHeader("Date"),
+		MessageID:   getHeader("Message-Id"),
+		ContentType: getHeader("Content-Type"),
 		Headers:     headers,
 		Body:        string(body),
 		RawEmail:    string(raw),
@@ -191,4 +204,15 @@ func (s *Session) Reset() {
 // Logout handles session logout
 func (s *Session) Logout() error {
 	return nil
+}
+
+// decodeRFC2047 decodes RFC 2047 encoded-word headers (e.g., =?UTF-8?B?...?=)
+// Returns the original string if decoding fails
+func decodeRFC2047(s string) string {
+	decoder := &mime.WordDecoder{}
+	decoded, err := decoder.DecodeHeader(s)
+	if err != nil {
+		return s // Return original if decoding fails
+	}
+	return decoded
 }
