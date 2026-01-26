@@ -1,0 +1,24 @@
+services:
+  trap-webhook:
+    build:
+      context: ./trap-webhook
+    ports:
+      - "18090:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - MAX_ENTRIES=1000
+      - ENTRY_TTL=3600
+
+  trap-smtp:
+    build:
+      context: ./trap-smtp
+    ports:
+      - "18091:8080" # Web UI
+      - "12525:2525" # SMTP
+    environment:
+      - HOST=0.0.0.0
+      - WEB_PORT=8080
+      - SMTP_PORT=2525
+      - MAX_ENTRIES=1000
+      - ENTRY_TTL=3600
