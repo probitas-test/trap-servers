@@ -30,7 +30,11 @@ func main() {
 }
 
 func startSMTPServer(cfg *Config, emailStore *store.Store) {
-	backend := smtpbackend.NewBackend(emailStore)
+	authConfig := &smtpbackend.AuthConfig{
+		Username: cfg.Username,
+		Password: cfg.Password,
+	}
+	backend := smtpbackend.NewBackend(emailStore, authConfig)
 
 	s := smtp.NewServer(backend)
 	s.Addr = cfg.SMTPAddr()
@@ -41,7 +45,11 @@ func startSMTPServer(cfg *Config, emailStore *store.Store) {
 	s.MaxRecipients = 50
 	s.AllowInsecureAuth = cfg.AllowInsecure
 
-	log.Printf("Starting SMTP server on %s", cfg.SMTPAddr())
+	if authConfig.HasCredentials() {
+		log.Printf("Starting SMTP server on %s (authentication required)", cfg.SMTPAddr())
+	} else {
+		log.Printf("Starting SMTP server on %s (open relay - no authentication)", cfg.SMTPAddr())
+	}
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatalf("Failed to start SMTP server: %v", err)
 	}

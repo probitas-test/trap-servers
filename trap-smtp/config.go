@@ -20,6 +20,11 @@ type Config struct {
 	SMTPDomain    string
 	SMTPMaxSize   int // Maximum message size in bytes
 	AllowInsecure bool
+
+	// Authentication settings
+	// If both Username and Password are empty, authentication is disabled (open relay)
+	Username string
+	Password string
 }
 
 func LoadConfig() *Config {
@@ -35,6 +40,8 @@ func LoadConfig() *Config {
 		SMTPDomain:    getEnv("SMTP_DOMAIN", "localhost"),
 		SMTPMaxSize:   getIntEnv("SMTP_MAX_SIZE", 10*1024*1024), // 10MB default
 		AllowInsecure: getBoolEnv("ALLOW_INSECURE", true),
+		Username:      getEnv("USERNAME", ""),
+		Password:      getEnv("PASSWORD", ""),
 	}
 }
 

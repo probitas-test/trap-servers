@@ -22,6 +22,7 @@ ghcr.io/probitas-test/trap-smtp:latest
 ## Features
 
 - **SMTP Server** - Receives emails on configurable port (default: 2525)
+- **SMTP Authentication** - Optional PLAIN/LOGIN authentication support
 - **Web UI** - Built-in web interface for viewing captured emails
 - **REST API** - JSON API for programmatic access
 - **Server-Sent Events** - Real-time updates when new emails arrive
@@ -86,6 +87,39 @@ See [API Documentation](/doc) for detailed examples.
 | `SMTP_DOMAIN`    | SMTP domain name                | `localhost` |
 | `SMTP_MAX_SIZE`  | Maximum message size in bytes   | `10485760`  |
 | `ALLOW_INSECURE` | Allow insecure SMTP connections | `true`      |
+| `USERNAME`       | SMTP authentication username    | (empty)     |
+| `PASSWORD`       | SMTP authentication password    | (empty)     |
+
+## Authentication
+
+The server supports SMTP authentication with **PLAIN** and **LOGIN** mechanisms.
+
+### Open Relay Mode (Default)
+
+When `USERNAME` and `PASSWORD` are both empty, the server runs in open relay
+mode:
+
+- Authentication mechanisms are advertised (PLAIN, LOGIN)
+- Any credentials sent by clients are accepted
+- Clients that don't authenticate can also send emails
+
+This is the default behavior, suitable for testing environments where you want
+to capture all emails regardless of authentication.
+
+### Authentication Required Mode
+
+When both `USERNAME` and `PASSWORD` are set, the server requires valid
+credentials:
+
+```bash
+# Run with authentication
+docker run -p 8080:8080 -p 2525:2525 \
+  -e USERNAME=testuser \
+  -e PASSWORD=testpass \
+  ghcr.io/probitas-test/trap-smtp
+```
+
+Clients must authenticate with the configured credentials to send emails.
 
 ## Development
 

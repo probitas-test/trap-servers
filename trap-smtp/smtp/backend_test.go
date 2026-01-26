@@ -4,15 +4,29 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/emersion/go-sasl"
 	gosmtp "github.com/emersion/go-smtp"
 
 	"github.com/probitas-test/state-servers/state-smtp/smtp"
 	"github.com/probitas-test/state-servers/state-smtp/store"
 )
 
+// noAuth returns an AuthConfig with no credentials (open relay mode)
+func noAuth() *smtp.AuthConfig {
+	return &smtp.AuthConfig{}
+}
+
+// withAuth returns an AuthConfig with the given credentials
+func withAuth(username, password string) *smtp.AuthConfig {
+	return &smtp.AuthConfig{
+		Username: username,
+		Password: password,
+	}
+}
+
 func TestBackend_NewSession(t *testing.T) {
 	s := store.New(100, 0)
-	backend := smtp.NewBackend(s)
+	backend := smtp.NewBackend(s, noAuth())
 
 	session, err := backend.NewSession(nil)
 	if err != nil {
@@ -25,7 +39,7 @@ func TestBackend_NewSession(t *testing.T) {
 
 func TestSession_FullFlow(t *testing.T) {
 	s := store.New(100, 0)
-	backend := smtp.NewBackend(s)
+	backend := smtp.NewBackend(s, noAuth())
 
 	session, _ := backend.NewSession(nil)
 
@@ -75,7 +89,7 @@ func TestSession_FullFlow(t *testing.T) {
 
 func TestSession_MultipleRecipients(t *testing.T) {
 	s := store.New(100, 0)
-	backend := smtp.NewBackend(s)
+	backend := smtp.NewBackend(s, noAuth())
 
 	session, _ := backend.NewSession(nil)
 
@@ -95,7 +109,7 @@ func TestSession_MultipleRecipients(t *testing.T) {
 
 func TestSession_Reset(t *testing.T) {
 	s := store.New(100, 0)
-	backend := smtp.NewBackend(s)
+	backend := smtp.NewBackend(s, noAuth())
 
 	session, _ := backend.NewSession(nil)
 
@@ -117,12 +131,9 @@ func TestSession_Reset(t *testing.T) {
 	}
 }
 
-// Note: AuthPlain is tested implicitly through the smtp.Session interface
-// The Session struct implements it to accept any credentials
-
 func TestSession_Logout(t *testing.T) {
 	s := store.New(100, 0)
-	backend := smtp.NewBackend(s)
+	backend := smtp.NewBackend(s, noAuth())
 
 	session, _ := backend.NewSession(nil)
 
@@ -134,7 +145,7 @@ func TestSession_Logout(t *testing.T) {
 
 func TestSession_MalformedEmail(t *testing.T) {
 	s := store.New(100, 0)
-	backend := smtp.NewBackend(s)
+	backend := smtp.NewBackend(s, noAuth())
 
 	session, _ := backend.NewSession(nil)
 
@@ -156,5 +167,243 @@ func TestSession_MalformedEmail(t *testing.T) {
 	entries := s.List()
 	if entries[0].RawEmail != malformed {
 		t.Errorf("RawEmail = %q, want %q", entries[0].RawEmail, malformed)
+	}
+}
+
+// Authentication tests
+
+func TestAuthConfig_HasCredentials(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *smtp.AuthConfig
+		expected bool
+	}{
+		{"empty", &smtp.AuthConfig{}, false},
+		{"username only", &smtp.AuthConfig{Username: "user"}, false},
+		{"password only", &smtp.AuthConfig{Password: "pass"}, false},
+		{"both set", &smtp.AuthConfig{Username: "user", Password: "pass"}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.config.HasCredentials(); got != tt.expected {
+				t.Errorf("HasCredentials() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSession_AuthMechanisms_AlwaysAdvertised(t *testing.T) {
+	// Auth mechanisms should always be advertised (even in open relay mode)
+	// so that clients that require auth can still connect
+	tests := []struct {
+		name   string
+		config *smtp.AuthConfig
+	}{
+		{"no auth (open relay)", noAuth()},
+		{"with auth", withAuth("user", "pass")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := store.New(100, 0)
+			backend := smtp.NewBackend(s, tt.config)
+
+			session, _ := backend.NewSession(nil)
+			authSession := session.(gosmtp.AuthSession)
+
+			mechs := authSession.AuthMechanisms()
+			if len(mechs) != 2 {
+				t.Fatalf("AuthMechanisms() returned %d mechanisms, want 2", len(mechs))
+			}
+
+			// Should support PLAIN and LOGIN
+			hasPLAIN := false
+			hasLOGIN := false
+			for _, m := range mechs {
+				if m == sasl.Plain {
+					hasPLAIN = true
+				}
+				if m == sasl.Login {
+					hasLOGIN = true
+				}
+			}
+
+			if !hasPLAIN {
+				t.Error("AuthMechanisms() should include PLAIN")
+			}
+			if !hasLOGIN {
+				t.Error("AuthMechanisms() should include LOGIN")
+			}
+		})
+	}
+}
+
+func TestSession_Auth_NoAuth_AcceptsAnything(t *testing.T) {
+	// In open relay mode, any credentials should be accepted
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+	authSession := session.(gosmtp.AuthSession)
+
+	// Test PLAIN with random credentials
+	server, err := authSession.Auth(sasl.Plain)
+	if err != nil {
+		t.Fatalf("Auth(PLAIN) error = %v", err)
+	}
+
+	response := []byte("\x00randomuser\x00randompass")
+	_, done, err := server.Next(response)
+	if err != nil {
+		t.Errorf("PLAIN auth should accept any credentials in open relay mode, got error: %v", err)
+	}
+	if !done {
+		t.Error("PLAIN auth should be done")
+	}
+}
+
+func TestSession_Auth_NoAuth_LOGIN_AcceptsAnything(t *testing.T) {
+	// In open relay mode, any credentials should be accepted via LOGIN
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+	authSession := session.(gosmtp.AuthSession)
+
+	server, err := authSession.Auth(sasl.Login)
+	if err != nil {
+		t.Fatalf("Auth(LOGIN) error = %v", err)
+	}
+
+	// Step through LOGIN flow with random credentials
+	_, _, _ = server.Next(nil)                      // Get username prompt
+	_, _, _ = server.Next([]byte("randomuser"))     // Send random username
+	_, done, err := server.Next([]byte("randompass")) // Send random password
+
+	if err != nil {
+		t.Errorf("LOGIN auth should accept any credentials in open relay mode, got error: %v", err)
+	}
+	if !done {
+		t.Error("LOGIN auth should be done")
+	}
+}
+
+func TestSession_Auth_PLAIN_ValidCredentials(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, withAuth("testuser", "testpass"))
+
+	session, _ := backend.NewSession(nil)
+	authSession := session.(gosmtp.AuthSession)
+
+	server, err := authSession.Auth(sasl.Plain)
+	if err != nil {
+		t.Fatalf("Auth(PLAIN) error = %v", err)
+	}
+
+	// PLAIN format: \x00username\x00password (identity is empty)
+	response := []byte("\x00testuser\x00testpass")
+	_, done, err := server.Next(response)
+
+	if err != nil {
+		t.Errorf("Next() error = %v, want nil", err)
+	}
+	if !done {
+		t.Error("Next() done = false, want true")
+	}
+}
+
+func TestSession_Auth_PLAIN_InvalidCredentials(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, withAuth("testuser", "testpass"))
+
+	session, _ := backend.NewSession(nil)
+	authSession := session.(gosmtp.AuthSession)
+
+	server, _ := authSession.Auth(sasl.Plain)
+
+	response := []byte("\x00wronguser\x00wrongpass")
+	_, _, err := server.Next(response)
+
+	if err == nil {
+		t.Error("Next() should return error for invalid credentials")
+	}
+}
+
+func TestSession_Auth_LOGIN_ValidCredentials(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, withAuth("testuser", "testpass"))
+
+	session, _ := backend.NewSession(nil)
+	authSession := session.(gosmtp.AuthSession)
+
+	server, err := authSession.Auth(sasl.Login)
+	if err != nil {
+		t.Fatalf("Auth(LOGIN) error = %v", err)
+	}
+
+	// Step 1: Initial call, should get username prompt
+	challenge, done, err := server.Next(nil)
+	if err != nil {
+		t.Fatalf("Step 1 error = %v", err)
+	}
+	if done {
+		t.Error("Step 1 should not be done")
+	}
+	if string(challenge) != "Username:" {
+		t.Errorf("Step 1 challenge = %q, want 'Username:'", string(challenge))
+	}
+
+	// Step 2: Send username, should get password prompt
+	challenge, done, err = server.Next([]byte("testuser"))
+	if err != nil {
+		t.Fatalf("Step 2 error = %v", err)
+	}
+	if done {
+		t.Error("Step 2 should not be done")
+	}
+	if string(challenge) != "Password:" {
+		t.Errorf("Step 2 challenge = %q, want 'Password:'", string(challenge))
+	}
+
+	// Step 3: Send password, should complete successfully
+	_, done, err = server.Next([]byte("testpass"))
+	if err != nil {
+		t.Errorf("Step 3 error = %v, want nil", err)
+	}
+	if !done {
+		t.Error("Step 3 should be done")
+	}
+}
+
+func TestSession_Auth_LOGIN_InvalidCredentials(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, withAuth("testuser", "testpass"))
+
+	session, _ := backend.NewSession(nil)
+	authSession := session.(gosmtp.AuthSession)
+
+	server, _ := authSession.Auth(sasl.Login)
+
+	// Step through the LOGIN flow with wrong credentials
+	_, _, _ = server.Next(nil)                  // Get username prompt
+	_, _, _ = server.Next([]byte("wronguser"))  // Send wrong username
+	_, _, err := server.Next([]byte("wrongpass")) // Send wrong password
+
+	if err == nil {
+		t.Error("LOGIN should return error for invalid credentials")
+	}
+}
+
+func TestSession_Auth_UnknownMechanism(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, withAuth("user", "pass"))
+
+	session, _ := backend.NewSession(nil)
+	authSession := session.(gosmtp.AuthSession)
+
+	_, err := authSession.Auth("UNKNOWN")
+	if err == nil {
+		t.Error("Auth() should return error for unknown mechanism")
 	}
 }
