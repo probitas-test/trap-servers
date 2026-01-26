@@ -35,6 +35,8 @@
 | `SMTP_DOMAIN`    | `localhost` | SMTP server domain                   |
 | `SMTP_MAX_SIZE`  | `10485760`  | Maximum message size in bytes (10MB) |
 | `ALLOW_INSECURE` | `true`      | Allow insecure authentication        |
+| `USERNAME`       | (empty)     | SMTP authentication username         |
+| `PASSWORD`       | (empty)     | SMTP authentication password         |
 
 ---
 
@@ -301,10 +303,44 @@ The SMTP server accepts emails on port 2525 (default).
 | ---------------- | ------------------------- |
 | Host             | `localhost`               |
 | Port             | `2525` (12525 in Compose) |
-| Authentication   | Optional (accepts any)    |
+| Authentication   | Optional (PLAIN, LOGIN)   |
 | TLS              | Not required              |
 | Max Message Size | 10MB (configurable)       |
 | Max Recipients   | 50                        |
+
+### Authentication
+
+The server supports two authentication modes:
+
+#### Open Relay Mode (Default)
+
+When `USERNAME` and `PASSWORD` are both empty:
+
+- AUTH mechanisms (PLAIN, LOGIN) are advertised
+- Any credentials sent by clients are accepted
+- Unauthenticated clients can also send emails
+
+This is suitable for testing environments where you want to capture all emails.
+
+#### Authentication Required Mode
+
+When both `USERNAME` and `PASSWORD` are set:
+
+- Clients must authenticate with the configured credentials
+- Invalid credentials are rejected
+
+**Example:**
+
+```bash
+# Set credentials via environment variables
+export USERNAME=testuser
+export PASSWORD=testpass
+
+# Or via Docker
+docker run -e USERNAME=testuser -e PASSWORD=testpass \
+  -p 8080:8080 -p 2525:2525 \
+  ghcr.io/probitas-test/trap-smtp
+```
 
 **Send Test Email:**
 
@@ -322,7 +358,7 @@ curl smtp://localhost:2525 \
   --mail-rcpt test@example.com \
   --upload-file email.txt
 
-# Using Python
+# Using Python (no auth)
 python3 -c "
 import smtplib
 from email.message import EmailMessage
@@ -334,6 +370,22 @@ msg['Subject'] = 'Test Email'
 msg.set_content('Hello from Python!')
 
 with smtplib.SMTP('localhost', 2525) as smtp:
+    smtp.send_message(msg)
+"
+
+# Using Python (with auth)
+python3 -c "
+import smtplib
+from email.message import EmailMessage
+
+msg = EmailMessage()
+msg['From'] = 'sender@example.com'
+msg['To'] = 'test@example.com'
+msg['Subject'] = 'Test Email'
+msg.set_content('Hello from Python with auth!')
+
+with smtplib.SMTP('localhost', 2525) as smtp:
+    smtp.login('testuser', 'testpass')  # Use configured credentials
     smtp.send_message(msg)
 "
 ```
