@@ -305,6 +305,7 @@ The web UI provides:
 | Field          | Type                | Description                     |
 | -------------- | ------------------- | ------------------------------- |
 | `id`           | string              | Unique identifier (UUID)        |
+| `seq`          | int64               | Monotonically increasing seq#   |
 | `received_at`  | string (RFC3339)    | Timestamp when request received |
 | `method`       | string              | HTTP method (GET, POST, etc.)   |
 | `path`         | string              | Request path                    |

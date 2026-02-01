@@ -204,6 +204,59 @@ func TestStore_Subscribe_ReceivesNewEntries(t *testing.T) {
 	}
 }
 
+func TestStore_Seq_MonotonicallyIncreasing(t *testing.T) {
+	t.Parallel()
+
+	s := store.New(100, 0)
+
+	s.Add(&store.EmailEntry{Subject: "First"})
+	s.Add(&store.EmailEntry{Subject: "Second"})
+	s.Add(&store.EmailEntry{Subject: "Third"})
+
+	list := s.List() // newest first
+
+	if list[0].Seq != 3 {
+		t.Errorf("list[0].Seq = %d, want 3", list[0].Seq)
+	}
+	if list[1].Seq != 2 {
+		t.Errorf("list[1].Seq = %d, want 2", list[1].Seq)
+	}
+	if list[2].Seq != 1 {
+		t.Errorf("list[2].Seq = %d, want 1", list[2].Seq)
+	}
+}
+
+func TestStore_Seq_StartsAtOne(t *testing.T) {
+	t.Parallel()
+
+	s := store.New(100, 0)
+
+	s.Add(&store.EmailEntry{Subject: "First"})
+
+	entry, _ := s.Get(s.List()[0].ID)
+	if entry.Seq != 1 {
+		t.Errorf("first entry Seq = %d, want 1", entry.Seq)
+	}
+}
+
+func TestStore_Seq_SurvivesEviction(t *testing.T) {
+	t.Parallel()
+
+	s := store.New(2, 0) // max 2 entries
+
+	s.Add(&store.EmailEntry{Subject: "1"}) // seq=1, will be evicted
+	s.Add(&store.EmailEntry{Subject: "2"}) // seq=2
+	s.Add(&store.EmailEntry{Subject: "3"}) // seq=3, evicts "1"
+
+	list := s.List() // newest first
+	if list[0].Seq != 3 {
+		t.Errorf("list[0].Seq = %d, want 3", list[0].Seq)
+	}
+	if list[1].Seq != 2 {
+		t.Errorf("list[1].Seq = %d, want 2", list[1].Seq)
+	}
+}
+
 func TestStore_ConcurrentAccess(t *testing.T) {
 	t.Parallel()
 
