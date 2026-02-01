@@ -2,8 +2,10 @@ package smtp
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -15,7 +17,7 @@ import (
 	"github.com/emersion/go-smtp"
 	"github.com/google/uuid"
 
-	"github.com/probitas-test/state-servers/state-smtp/store"
+	"github.com/probitas-test/state-servers/trap-smtp/store"
 )
 
 // AuthConfig holds authentication settings
@@ -308,6 +310,7 @@ func parseMultipart(body []byte, contentType string, result *parsedBody) {
 					Filename:    filename,
 					ContentType: partContentType,
 					Size:        len(decodedData),
+					Sha256:      fmt.Sprintf("%x", sha256.Sum256(decodedData)),
 					ContentID:   contentID,
 					IsInline:    isInline && contentID != "",
 					Data:        decodedData,

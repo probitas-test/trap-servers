@@ -90,41 +90,51 @@ All servers are designed for testing purposes:
 
 Both servers provide the following endpoints:
 
-| Endpoint            | Method | Description                     |
-| ------------------- | ------ | ------------------------------- |
-| `/`                 | GET    | Web UI                          |
-| `/doc`              | GET    | API documentation (Markdown)    |
-| `/api/entries`      | GET    | List all entries (newest first) |
-| `/api/entries/{id}` | GET    | Get specific entry              |
-| `/api/entries/{id}` | DELETE | Delete specific entry           |
-| `/api/entries`      | DELETE | Clear all entries               |
-| `/api/stats`        | GET    | Store statistics                |
-| `/api/events`       | GET    | Server-Sent Events stream       |
-| `/health`           | GET    | Health check                    |
+| Endpoint            | Method | Description                      |
+| ------------------- | ------ | -------------------------------- |
+| `/`                 | GET    | Web UI                           |
+| `/doc`              | GET    | API documentation (Markdown)     |
+| `/api/entries`      | GET    | List all entries (newest first)  |
+| `/api/entries/{id}` | GET    | Get specific entry               |
+| `/api/entries/{id}` | DELETE | Delete specific entry            |
+| `/api/entries`      | DELETE | Clear all entries                |
+| `/api/stats`        | GET    | Store statistics                 |
+| `/api/count`        | GET    | Count entries matching filter    |
+| `/api/await`        | GET    | Wait for entries matching filter |
+| `/api/events`       | GET    | Server-Sent Events stream        |
+| `/health`           | GET    | Health check                     |
 
 ### Filtering
 
 `GET /api/entries` supports query parameters for filtering:
 
-| Parameter        | Description                     | trap-smtp | trap-webhook |
-| ---------------- | ------------------------------- | --------- | ------------ |
-| `from`           | Contains match on sender        | ✓         |              |
-| `to`             | Contains match on any recipient | ✓         |              |
-| `subject`        | Contains match on subject       | ✓         |              |
-| `method`         | Exact match on HTTP method      |           | ✓            |
-| `path`           | Contains match on request path  |           | ✓            |
-| `query`          | Contains match on query string  |           | ✓            |
-| `body`           | Contains match on body          | ✓         | ✓            |
-| `jsonpath`       | JSONPath expression for body    | ✓         | ✓            |
-| `jsonpath_value` | Expected value at JSONPath      | ✓         | ✓            |
-| `content_type`   | Contains match on Content-Type  |           | ✓            |
-| `header`         | Header name to check            | ✓         | ✓            |
-| `header_value`   | Header value contains match     | ✓         | ✓            |
-| `host`           | Contains match on Host header   |           | ✓            |
-| `since`          | ReceivedAt after (RFC3339)      | ✓         | ✓            |
-| `until`          | ReceivedAt before (RFC3339)     | ✓         | ✓            |
-| `limit`          | Maximum number of results       | ✓         | ✓            |
-| `offset`         | Skip first N results            | ✓         | ✓            |
+| Parameter            | Description                     | trap-smtp | trap-webhook |
+| -------------------- | ------------------------------- | --------- | ------------ |
+| `from`               | Contains match on sender        | ✓         |              |
+| `from_regex`         | Regex match on sender           | ✓         |              |
+| `to`                 | Contains match on any recipient | ✓         |              |
+| `to_regex`           | Regex match on any recipient    | ✓         |              |
+| `subject`            | Contains match on subject       | ✓         |              |
+| `subject_regex`      | Regex match on subject          | ✓         |              |
+| `method`             | Exact match on HTTP method      |           | ✓            |
+| `path`               | Contains match on request path  |           | ✓            |
+| `path_regex`         | Regex match on request path     |           | ✓            |
+| `query`              | Contains match on query string  |           | ✓            |
+| `query_regex`        | Regex match on query string     |           | ✓            |
+| `body`               | Contains match on body          | ✓         | ✓            |
+| `body_regex`         | Regex match on body             | ✓         | ✓            |
+| `jsonpath`           | JSONPath expression for body    | ✓         | ✓            |
+| `jsonpath_value`     | Expected value at JSONPath      | ✓         | ✓            |
+| `content_type`       | Contains match on Content-Type  |           | ✓            |
+| `content_type_regex` | Regex match on Content-Type     |           | ✓            |
+| `header`             | Header name to check            | ✓         | ✓            |
+| `header_value`       | Header value contains match     | ✓         | ✓            |
+| `host`               | Contains match on Host header   |           | ✓            |
+| `host_regex`         | Regex match on Host header      |           | ✓            |
+| `since`              | ReceivedAt after (RFC3339)      | ✓         | ✓            |
+| `until`              | ReceivedAt before (RFC3339)     | ✓         | ✓            |
+| `limit`              | Maximum number of results       | ✓         | ✓            |
+| `offset`             | Skip first N results            | ✓         | ✓            |
 
 ### trap-smtp specific
 

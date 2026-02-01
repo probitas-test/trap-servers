@@ -10,6 +10,7 @@ import (
 // WebhookEntry represents a single received webhook request
 type WebhookEntry struct {
 	ID          string              `json:"id"`
+	Seq         int64               `json:"seq"`
 	ReceivedAt  time.Time           `json:"received_at"`
 	Method      string              `json:"method"`
 	Path        string              `json:"path"`
@@ -26,6 +27,7 @@ type Store struct {
 	mu         sync.RWMutex
 	entries    map[string]*WebhookEntry
 	order      []string // maintains insertion order for FIFO eviction
+	nextSeq    int64
 	maxEntries int
 	ttl        time.Duration
 	listeners  map[chan *WebhookEntry]struct{}
@@ -69,6 +71,8 @@ func (s *Store) Add(entry *WebhookEntry) string {
 		delete(s.entries, oldestID)
 	}
 
+	s.nextSeq++
+	entry.Seq = s.nextSeq
 	s.entries[entry.ID] = entry
 	s.order = append(s.order, entry.ID)
 

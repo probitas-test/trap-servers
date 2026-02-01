@@ -58,13 +58,18 @@ List all stored email entries with optional filtering.
 | `jsonpath_value` | string | Expected value at JSONPath         |
 | `header`         | string | Header name to check               |
 | `header_value`   | string | Header value contains match        |
+| `from_regex`     | string | Regex match on sender address      |
+| `to_regex`       | string | Regex match on any recipient       |
+| `subject_regex`  | string | Regex match on subject             |
+| `body_regex`     | string | Regex match on body                |
 | `since`          | string | ReceivedAt after (RFC3339 format)  |
 | `until`          | string | ReceivedAt before (RFC3339 format) |
 | `limit`          | int    | Maximum number of results          |
 | `offset`         | int    | Skip first N results               |
 
 > **Note:** All filters use AND logic. Empty filters return all entries
-> (backward compatible).
+> (backward compatible). Regex filters use Go's `regexp` syntax. Invalid regex
+> returns 400 Bad Request.
 
 **Request:**
 
@@ -238,6 +243,106 @@ curl "http://localhost:8080/api/stats"
 }
 ```
 
+### GET /api/count
+
+Get the number of entries matching the filter criteria. Useful for quick
+assertions without fetching full entry data.
+
+**Query Parameters:**
+
+Same filter parameters as `GET /api/entries` (`from`, `from_regex`, `to`,
+`to_regex`, `subject`, `subject_regex`, `body`, `body_regex`, `jsonpath`,
+`jsonpath_value`, `header`, `header_value`, `since`, `until`). Pagination
+parameters (`limit`, `offset`) are ignored.
+
+**Request:**
+
+```bash
+# Count all entries
+curl "http://localhost:8080/api/count"
+
+# Count emails from a specific sender
+curl "http://localhost:8080/api/count?from=test@example.com"
+
+# Count with multiple filters
+curl "http://localhost:8080/api/count?from=alice&subject=welcome"
+```
+
+**Response:**
+
+```json
+{
+  "count": 3
+}
+```
+
+### GET /api/await
+
+Block until the specified number of entries match the filter criteria, or the
+timeout is reached. This eliminates the need for polling or `sleep` in tests.
+
+**Query Parameters:**
+
+| Parameter | Type   | Default | Description                                  |
+| --------- | ------ | ------- | -------------------------------------------- |
+| `count`   | int    | `1`     | Minimum number of matching entries to return |
+| `timeout` | string | `10s`   | Maximum wait duration (Go duration format)   |
+
+All email filter parameters (`from`, `to`, `subject`, `body`, `from_regex`,
+`to_regex`, `subject_regex`, `body_regex`, `jsonpath`, `jsonpath_value`,
+`header`, `header_value`, `since`, `until`) are also supported. Pagination
+parameters (`limit`, `offset`) are not supported.
+
+**Request:**
+
+```bash
+# Wait for 1 email from a specific sender (up to 5 seconds)
+curl "http://localhost:8080/api/await?from=test@example.com&timeout=5s"
+
+# Wait for 2 emails matching a subject pattern
+curl "http://localhost:8080/api/await?subject=welcome&count=2&timeout=10s"
+```
+
+**Success Response (200):**
+
+Returns all matching entries when the count threshold is met.
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "received_at": "2025-01-27T10:30:00Z",
+    "from": "test@example.com",
+    "to": ["recipient@example.com"],
+    "subject": "Welcome",
+    "body": "Hello!"
+  }
+]
+```
+
+**Timeout Response (408):**
+
+```json
+{
+  "error": "timeout",
+  "matched": 0,
+  "expected": 1
+}
+```
+
+**Test Example (using curl in a CI pipeline):**
+
+```bash
+# 1. Send an email to trap-smtp
+swaks --to test@example.com --from sender@example.com \
+      --server localhost:2525 --header "Subject: Order #123"
+
+# 2. Wait for the email to arrive and verify
+curl -sf "http://localhost:8080/api/await?subject=Order&timeout=5s" | \
+  jq '.[0].subject'
+# Output: "Order #123"
+```
+
 ### GET /api/events
 
 Server-Sent Events (SSE) stream for real-time email notifications.
@@ -399,6 +504,7 @@ with smtplib.SMTP('localhost', 2525) as smtp:
 | Field          | Type                | Description                    |
 | -------------- | ------------------- | ------------------------------ |
 | `id`           | string              | Unique identifier (UUID)       |
+| `seq`          | int64               | Monotonically increasing seq#  |
 | `received_at`  | string (RFC3339)    | Timestamp when email received  |
 | `from`         | string              | Sender address (envelope)      |
 | `to`           | []string            | Recipient addresses (envelope) |
@@ -408,4 +514,19 @@ with smtplib.SMTP('localhost', 2525) as smtp:
 | `content_type` | string              | Content-Type header            |
 | `headers`      | map[string][]string | All email headers              |
 | `body`         | string              | Email body content             |
+| `html_body`    | string              | HTML version (if available)    |
+| `text_body`    | string              | Plain text version             |
 | `raw_email`    | string              | Complete raw email             |
+| `attachments`  | []Attachment        | File attachments               |
+
+### Attachment
+
+| Field          | Type   | Description                                 |
+| -------------- | ------ | ------------------------------------------- |
+| `id`           | string | Unique identifier for download              |
+| `filename`     | string | Original filename                           |
+| `content_type` | string | MIME type                                   |
+| `size`         | int    | Size in bytes                               |
+| `sha256`       | string | SHA-256 hex digest of the binary data       |
+| `content_id`   | string | Content-ID for inline images (cid:xxx)      |
+| `is_inline`    | bool   | True if inline attachment (e.g., cid image) |

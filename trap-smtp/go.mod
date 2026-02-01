@@ -1,4 +1,4 @@
-module github.com/probitas-test/state-servers/state-smtp
+module github.com/probitas-test/state-servers/trap-smtp
 
 go 1.25
 

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"regexp"
 	"testing"
 	"time"
 )
@@ -203,6 +204,47 @@ func TestStore_ListWithFilter(t *testing.T) {
 		{
 			name:      "no matches",
 			filter:    &WebhookFilter{Method: "DELETE"},
+			wantCount: 0,
+		},
+		{
+			name:      "filter by path regex",
+			filter:    &WebhookFilter{PathRegex: regexp.MustCompile(`^/api/users$`)},
+			wantCount: 2,
+			wantIDs:   []string{"3", "1"},
+		},
+		{
+			name:      "filter by path regex (webhooks only)",
+			filter:    &WebhookFilter{PathRegex: regexp.MustCompile(`/webhooks/`)},
+			wantCount: 1,
+			wantIDs:   []string{"2"},
+		},
+		{
+			name:      "filter by body regex",
+			filter:    &WebhookFilter{BodyRegex: regexp.MustCompile(`"event":"user\.\w+"`)},
+			wantCount: 1,
+			wantIDs:   []string{"2"},
+		},
+		{
+			name:      "filter by host regex",
+			filter:    &WebhookFilter{HostRegex: regexp.MustCompile(`^(api|hooks)\.example\.com$`)},
+			wantCount: 3,
+			wantIDs:   []string{"3", "2", "1"},
+		},
+		{
+			name:      "filter by host regex (specific)",
+			filter:    &WebhookFilter{HostRegex: regexp.MustCompile(`^hooks\.`)},
+			wantCount: 1,
+			wantIDs:   []string{"2"},
+		},
+		{
+			name:      "regex combined with contains filter (AND logic)",
+			filter:    &WebhookFilter{Method: "POST", PathRegex: regexp.MustCompile(`/users$`)},
+			wantCount: 1,
+			wantIDs:   []string{"3"},
+		},
+		{
+			name:      "regex no match",
+			filter:    &WebhookFilter{PathRegex: regexp.MustCompile(`^/nonexistent`)},
 			wantCount: 0,
 		},
 	}

@@ -2,15 +2,17 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"mime"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/probitas-test/state-servers/state-smtp/store"
+	"github.com/probitas-test/state-servers/trap-smtp/store"
 )
 
 var emailStore *store.Store
@@ -22,7 +24,11 @@ func SetStore(s *store.Store) {
 
 // ListEntriesHandler returns stored email entries with optional filtering
 func ListEntriesHandler(w http.ResponseWriter, r *http.Request) {
-	filter := parseEmailFilter(r)
+	filter, err := parseEmailFilter(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	entries := emailStore.ListWithFilter(filter)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -32,7 +38,7 @@ func ListEntriesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // parseEmailFilter extracts filter parameters from the request
-func parseEmailFilter(r *http.Request) *store.EmailFilter {
+func parseEmailFilter(r *http.Request) (*store.EmailFilter, error) {
 	q := r.URL.Query()
 
 	filter := &store.EmailFilter{
@@ -44,6 +50,26 @@ func parseEmailFilter(r *http.Request) *store.EmailFilter {
 		JSONPathValue: q.Get("jsonpath_value"),
 		Header:        q.Get("header"),
 		HeaderValue:   q.Get("header_value"),
+	}
+
+	// Parse regex filters
+	regexFields := []struct {
+		param string
+		dest  **regexp.Regexp
+	}{
+		{"from_regex", &filter.FromRegex},
+		{"to_regex", &filter.ToRegex},
+		{"subject_regex", &filter.SubjectRegex},
+		{"body_regex", &filter.BodyRegex},
+	}
+	for _, rf := range regexFields {
+		if v := q.Get(rf.param); v != "" {
+			re, err := regexp.Compile(v)
+			if err != nil {
+				return nil, fmt.Errorf("invalid %s: %w", rf.param, err)
+			}
+			*rf.dest = re
+		}
 	}
 
 	// Parse time filters
@@ -70,7 +96,7 @@ func parseEmailFilter(r *http.Request) *store.EmailFilter {
 		}
 	}
 
-	return filter
+	return filter, nil
 }
 
 // GetEntryHandler returns a specific entry by ID

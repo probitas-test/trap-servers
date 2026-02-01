@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,6 +24,12 @@ type EmailFilter struct {
 	Until         *time.Time // ReceivedAt before
 	Limit         int        // Max results (0 = no limit)
 	Offset        int        // Skip first N results
+
+	// Regex filters (compiled regular expressions)
+	FromRegex    *regexp.Regexp // Regex match on sender
+	ToRegex      *regexp.Regexp // Regex match on any recipient
+	SubjectRegex *regexp.Regexp // Regex match on subject
+	BodyRegex    *regexp.Regexp // Regex match on body
 }
 
 // IsEmpty returns true if no filter criteria are set
@@ -34,7 +41,11 @@ func (f *EmailFilter) IsEmpty() bool {
 		f.JSONPath == "" &&
 		f.Header == "" &&
 		f.Since == nil &&
-		f.Until == nil
+		f.Until == nil &&
+		f.FromRegex == nil &&
+		f.ToRegex == nil &&
+		f.SubjectRegex == nil &&
+		f.BodyRegex == nil
 }
 
 // ListWithFilter returns entries matching the filter criteria
@@ -61,6 +72,9 @@ func matchesEmailFilter(entry *EmailEntry, filter *EmailFilter) bool {
 	if filter.From != "" && !containsIgnoreCase(entry.From, filter.From) {
 		return false
 	}
+	if filter.FromRegex != nil && !filter.FromRegex.MatchString(entry.From) {
+		return false
+	}
 
 	// To filter (any recipient must match)
 	if filter.To != "" {
@@ -75,14 +89,32 @@ func matchesEmailFilter(entry *EmailEntry, filter *EmailFilter) bool {
 			return false
 		}
 	}
+	if filter.ToRegex != nil {
+		found := false
+		for _, to := range entry.To {
+			if filter.ToRegex.MatchString(to) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
 
 	// Subject filter
 	if filter.Subject != "" && !containsIgnoreCase(entry.Subject, filter.Subject) {
 		return false
 	}
+	if filter.SubjectRegex != nil && !filter.SubjectRegex.MatchString(entry.Subject) {
+		return false
+	}
 
 	// Body filter
 	if filter.Body != "" && !containsIgnoreCase(entry.Body, filter.Body) {
+		return false
+	}
+	if filter.BodyRegex != nil && !filter.BodyRegex.MatchString(entry.Body) {
 		return false
 	}
 

@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/probitas-test/state-servers/state-webhook/handlers"
-	"github.com/probitas-test/state-servers/state-webhook/store"
+	"github.com/probitas-test/state-servers/trap-webhook/handlers"
+	"github.com/probitas-test/state-servers/trap-webhook/store"
 )
 
 func main() {
@@ -33,6 +33,8 @@ func main() {
 		r.Delete("/entries", handlers.ClearEntriesHandler)
 		r.Get("/stats", handlers.StatsHandler)
 		r.Get("/events", handlers.SSEHandler)
+		r.Get("/await", handlers.AwaitHandler)
+		r.Get("/count", handlers.CountHandler)
 	})
 
 	// Webhook receiver - accepts any method on any path under /webhook/

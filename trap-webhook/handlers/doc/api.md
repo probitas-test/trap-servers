@@ -67,25 +67,31 @@ List all stored webhook entries with optional filtering.
 
 **Query Parameters:**
 
-| Parameter        | Type   | Description                                   |
-| ---------------- | ------ | --------------------------------------------- |
-| `method`         | string | Exact match on HTTP method (case-insensitive) |
-| `path`           | string | Contains match on request path                |
-| `query`          | string | Contains match on query string                |
-| `body`           | string | Contains match on request body                |
-| `jsonpath`       | string | JSONPath expression for JSON body             |
-| `jsonpath_value` | string | Expected value at JSONPath                    |
-| `content_type`   | string | Contains match on Content-Type                |
-| `header`         | string | Header name to check                          |
-| `header_value`   | string | Header value contains match                   |
-| `host`           | string | Contains match on Host header                 |
-| `since`          | string | ReceivedAt after (RFC3339 format)             |
-| `until`          | string | ReceivedAt before (RFC3339 format)            |
-| `limit`          | int    | Maximum number of results                     |
-| `offset`         | int    | Skip first N results                          |
+| Parameter            | Type   | Description                                   |
+| -------------------- | ------ | --------------------------------------------- |
+| `method`             | string | Exact match on HTTP method (case-insensitive) |
+| `path`               | string | Contains match on request path                |
+| `query`              | string | Contains match on query string                |
+| `body`               | string | Contains match on request body                |
+| `jsonpath`           | string | JSONPath expression for JSON body             |
+| `jsonpath_value`     | string | Expected value at JSONPath                    |
+| `content_type`       | string | Contains match on Content-Type                |
+| `header`             | string | Header name to check                          |
+| `header_value`       | string | Header value contains match                   |
+| `host`               | string | Contains match on Host header                 |
+| `path_regex`         | string | Regex match on request path                   |
+| `query_regex`        | string | Regex match on query string                   |
+| `body_regex`         | string | Regex match on request body                   |
+| `content_type_regex` | string | Regex match on Content-Type                   |
+| `host_regex`         | string | Regex match on Host header                    |
+| `since`              | string | ReceivedAt after (RFC3339 format)             |
+| `until`              | string | ReceivedAt before (RFC3339 format)            |
+| `limit`              | int    | Maximum number of results                     |
+| `offset`             | int    | Skip first N results                          |
 
 > **Note:** All filters use AND logic. Empty filters return all entries
-> (backward compatible).
+> (backward compatible). Regex filters use Go's `regexp` syntax. Invalid regex
+> returns 400 Bad Request.
 
 **Request:**
 
@@ -243,6 +249,105 @@ curl "http://localhost:8080/api/stats"
 }
 ```
 
+### GET /api/count
+
+Get the number of entries matching the filter criteria. Useful for quick
+assertions without fetching full entry data.
+
+**Query Parameters:**
+
+Same filter parameters as `GET /api/entries` (`method`, `path`, `query`, `body`,
+`jsonpath`, `jsonpath_value`, `content_type`, `header`, `header_value`, `host`,
+`path_regex`, `query_regex`, `body_regex`, `content_type_regex`, `host_regex`,
+`since`, `until`). Pagination parameters (`limit`, `offset`) are ignored.
+
+**Request:**
+
+```bash
+# Count all entries
+curl "http://localhost:8080/api/count"
+
+# Count POST requests
+curl "http://localhost:8080/api/count?method=POST"
+
+# Count with multiple filters
+curl "http://localhost:8080/api/count?method=POST&path=payment"
+```
+
+**Response:**
+
+```json
+{
+  "count": 3
+}
+```
+
+### GET /api/await
+
+Block until the specified number of entries match the filter criteria, or the
+timeout is reached. This eliminates the need for polling or `sleep` in tests.
+
+**Query Parameters:**
+
+| Parameter | Type   | Default | Description                                  |
+| --------- | ------ | ------- | -------------------------------------------- |
+| `count`   | int    | `1`     | Minimum number of matching entries to return |
+| `timeout` | string | `10s`   | Maximum wait duration (Go duration format)   |
+
+All webhook filter parameters (`method`, `path`, `query`, `body`, `jsonpath`,
+`jsonpath_value`, `content_type`, `header`, `header_value`, `host`, `since`,
+`until`, `path_regex`, `query_regex`, `body_regex`, `content_type_regex`,
+`host_regex`) are also supported. Pagination parameters (`limit`, `offset`) are
+not supported.
+
+**Request:**
+
+```bash
+# Wait for 1 POST webhook (up to 5 seconds)
+curl "http://localhost:8080/api/await?method=POST&timeout=5s"
+
+# Wait for 2 webhooks to a specific path
+curl "http://localhost:8080/api/await?path=/webhook/payment&count=2&timeout=10s"
+```
+
+**Success Response (200):**
+
+Returns all matching entries when the count threshold is met.
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "received_at": "2025-01-27T10:30:00Z",
+    "method": "POST",
+    "path": "/webhook/payment",
+    "body": "{\"event\": \"payment.completed\"}"
+  }
+]
+```
+
+**Timeout Response (408):**
+
+```json
+{
+  "error": "timeout",
+  "matched": 0,
+  "expected": 1
+}
+```
+
+**Test Example (using curl in a CI pipeline):**
+
+```bash
+# 1. Trigger your app (which sends a webhook to trap-webhook)
+curl -X POST http://my-app/process-order
+
+# 2. Wait for the webhook to arrive and verify
+curl -sf "http://localhost:8080/api/await?path=/webhook/payment&timeout=5s" | \
+  jq '.[0].body | fromjson | .event'
+# Output: "payment.completed"
+```
+
 ### GET /api/events
 
 Server-Sent Events (SSE) stream for real-time webhook notifications.
@@ -305,6 +410,7 @@ The web UI provides:
 | Field          | Type                | Description                     |
 | -------------- | ------------------- | ------------------------------- |
 | `id`           | string              | Unique identifier (UUID)        |
+| `seq`          | int64               | Monotonically increasing seq#   |
 | `received_at`  | string (RFC3339)    | Timestamp when request received |
 | `method`       | string              | HTTP method (GET, POST, etc.)   |
 | `path`         | string              | Request path                    |

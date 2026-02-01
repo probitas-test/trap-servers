@@ -4,7 +4,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/probitas-test/state-servers/state-webhook/store"
+	"github.com/probitas-test/state-servers/trap-webhook/store"
 )
 
 var webhookStore *store.Store

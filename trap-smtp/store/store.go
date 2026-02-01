@@ -13,6 +13,7 @@ type Attachment struct {
 	Filename    string `json:"filename"`     // Original filename
 	ContentType string `json:"content_type"` // MIME type
 	Size        int    `json:"size"`         // Size in bytes
+	Sha256      string `json:"sha256"`       // SHA-256 hash of the binary data
 	ContentID   string `json:"content_id"`   // Content-ID for inline images (cid:xxx)
 	IsInline    bool   `json:"is_inline"`    // True if inline attachment
 	Data        []byte `json:"-"`            // Binary data (not serialized to JSON)
@@ -21,6 +22,7 @@ type Attachment struct {
 // EmailEntry represents a single received email
 type EmailEntry struct {
 	ID         string    `json:"id"`
+	Seq        int64     `json:"seq"`
 	ReceivedAt time.Time `json:"received_at"`
 
 	// SMTP envelope
@@ -49,6 +51,7 @@ type Store struct {
 	mu         sync.RWMutex
 	entries    map[string]*EmailEntry
 	order      []string // maintains insertion order for FIFO eviction
+	nextSeq    int64
 	maxEntries int
 	ttl        time.Duration
 	listeners  map[chan *EmailEntry]struct{}
@@ -92,6 +95,8 @@ func (s *Store) Add(entry *EmailEntry) string {
 		delete(s.entries, oldestID)
 	}
 
+	s.nextSeq++
+	entry.Seq = s.nextSeq
 	s.entries[entry.ID] = entry
 	s.order = append(s.order, entry.ID)
 
