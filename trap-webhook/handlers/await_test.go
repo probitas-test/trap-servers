@@ -167,3 +167,58 @@ func TestAwaitHandler_DefaultCount(t *testing.T) {
 		t.Errorf("len(entries) = %d, want 1", len(entries))
 	}
 }
+
+func TestAwaitHandler_InvalidCount(t *testing.T) {
+	r, _ := setupAwaitRouter()
+
+	tests := []struct {
+		name  string
+		count string
+	}{
+		{"negative", "-1"},
+		{"zero", "0"},
+		{"non-integer", "abc"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := "/api/await?count=" + tt.count + "&timeout=1s"
+
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want %d for count=%s", w.Code, http.StatusBadRequest, tt.count)
+			}
+		})
+	}
+}
+
+func TestAwaitHandler_InvalidTimeout(t *testing.T) {
+	r, _ := setupAwaitRouter()
+
+	tests := []struct {
+		name    string
+		timeout string
+	}{
+		{"negative", "-1s"},
+		{"zero", "0s"},
+		{"malformed", "invalid"},
+		{"no-unit", "5"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := "/api/await?count=1&timeout=" + tt.timeout
+
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want %d for timeout=%s", w.Code, http.StatusBadRequest, tt.timeout)
+			}
+		})
+	}
+}
