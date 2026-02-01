@@ -409,4 +409,19 @@ with smtplib.SMTP('localhost', 2525) as smtp:
 | `content_type` | string              | Content-Type header            |
 | `headers`      | map[string][]string | All email headers              |
 | `body`         | string              | Email body content             |
+| `html_body`    | string              | HTML version (if available)    |
+| `text_body`    | string              | Plain text version             |
 | `raw_email`    | string              | Complete raw email             |
+| `attachments`  | []Attachment        | File attachments               |
+
+### Attachment
+
+| Field          | Type   | Description                                 |
+| -------------- | ------ | ------------------------------------------- |
+| `id`           | string | Unique identifier for download              |
+| `filename`     | string | Original filename                           |
+| `content_type` | string | MIME type                                   |
+| `size`         | int    | Size in bytes                               |
+| `sha256`       | string | SHA-256 hex digest of the binary data       |
+| `content_id`   | string | Content-ID for inline images (cid:xxx)      |
+| `is_inline`    | bool   | True if inline attachment (e.g., cid image) |

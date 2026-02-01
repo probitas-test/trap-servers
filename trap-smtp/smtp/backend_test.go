@@ -1,6 +1,9 @@
 package smtp_test
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -574,5 +577,107 @@ func TestSession_MultipartBase64Encoded(t *testing.T) {
 	// Body should be decoded from base64
 	if !strings.Contains(entry.Body, "こんにちは") {
 		t.Errorf("Body should contain decoded Japanese text, got: %q", entry.Body)
+	}
+}
+
+func TestSession_AttachmentSha256(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+
+	_ = session.Mail("sender@example.com", &gosmtp.MailOptions{})
+	_ = session.Rcpt("recipient@example.com", &gosmtp.RcptOptions{})
+
+	// Known attachment content and its SHA-256
+	attachmentContent := []byte("Hello, World!")
+	encodedContent := base64.StdEncoding.EncodeToString(attachmentContent)
+	expectedHash := fmt.Sprintf("%x", sha256.Sum256(attachmentContent))
+
+	emailContent := "From: sender@example.com\r\n" +
+		"To: recipient@example.com\r\n" +
+		"Subject: Attachment Test\r\n" +
+		"Content-Type: multipart/mixed; boundary=\"boundary-attach\"\r\n" +
+		"\r\n" +
+		"--boundary-attach\r\n" +
+		"Content-Type: text/plain; charset=utf-8\r\n" +
+		"\r\n" +
+		"Email body\r\n" +
+		"--boundary-attach\r\n" +
+		"Content-Type: application/octet-stream\r\n" +
+		"Content-Disposition: attachment; filename=\"test.bin\"\r\n" +
+		"Content-Transfer-Encoding: base64\r\n" +
+		"\r\n" +
+		encodedContent + "\r\n" +
+		"--boundary-attach--\r\n"
+
+	err := session.Data(strings.NewReader(emailContent))
+	if err != nil {
+		t.Fatalf("Data() error = %v", err)
+	}
+
+	entries := s.List()
+	entry := entries[0]
+
+	if len(entry.Attachments) != 1 {
+		t.Fatalf("len(Attachments) = %d, want 1", len(entry.Attachments))
+	}
+
+	att := entry.Attachments[0]
+	if att.Sha256 != expectedHash {
+		t.Errorf("Sha256 = %q, want %q", att.Sha256, expectedHash)
+	}
+	if att.Filename != "test.bin" {
+		t.Errorf("Filename = %q, want %q", att.Filename, "test.bin")
+	}
+}
+
+func TestSession_AttachmentSha256_InlineImage(t *testing.T) {
+	s := store.New(100, 0)
+	backend := smtp.NewBackend(s, noAuth())
+
+	session, _ := backend.NewSession(nil)
+
+	_ = session.Mail("sender@example.com", &gosmtp.MailOptions{})
+	_ = session.Rcpt("recipient@example.com", &gosmtp.RcptOptions{})
+
+	// Fake 1x1 PNG pixel data
+	imageData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+	encodedImage := base64.StdEncoding.EncodeToString(imageData)
+	expectedHash := fmt.Sprintf("%x", sha256.Sum256(imageData))
+
+	emailContent := "From: sender@example.com\r\n" +
+		"To: recipient@example.com\r\n" +
+		"Subject: Inline Image Test\r\n" +
+		"Content-Type: multipart/related; boundary=\"boundary-inline\"\r\n" +
+		"\r\n" +
+		"--boundary-inline\r\n" +
+		"Content-Type: text/html; charset=utf-8\r\n" +
+		"\r\n" +
+		"<html><body><img src=\"cid:img001\"></body></html>\r\n" +
+		"--boundary-inline\r\n" +
+		"Content-Type: image/png\r\n" +
+		"Content-Disposition: inline; filename=\"pixel.png\"\r\n" +
+		"Content-Id: <img001>\r\n" +
+		"Content-Transfer-Encoding: base64\r\n" +
+		"\r\n" +
+		encodedImage + "\r\n" +
+		"--boundary-inline--\r\n"
+
+	err := session.Data(strings.NewReader(emailContent))
+	if err != nil {
+		t.Fatalf("Data() error = %v", err)
+	}
+
+	entries := s.List()
+	entry := entries[0]
+
+	if len(entry.Attachments) != 1 {
+		t.Fatalf("len(Attachments) = %d, want 1", len(entry.Attachments))
+	}
+
+	att := entry.Attachments[0]
+	if att.Sha256 != expectedHash {
+		t.Errorf("Sha256 = %q, want %q", att.Sha256, expectedHash)
 	}
 }

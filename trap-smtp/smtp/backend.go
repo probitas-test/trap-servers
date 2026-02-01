@@ -2,8 +2,10 @@ package smtp
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -308,6 +310,7 @@ func parseMultipart(body []byte, contentType string, result *parsedBody) {
 					Filename:    filename,
 					ContentType: partContentType,
 					Size:        len(decodedData),
+					Sha256:      fmt.Sprintf("%x", sha256.Sum256(decodedData)),
 					ContentID:   contentID,
 					IsInline:    isInline && contentID != "",
 					Data:        decodedData,

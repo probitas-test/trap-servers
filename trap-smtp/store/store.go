@@ -13,6 +13,7 @@ type Attachment struct {
 	Filename    string `json:"filename"`     // Original filename
 	ContentType string `json:"content_type"` // MIME type
 	Size        int    `json:"size"`         // Size in bytes
+	Sha256      string `json:"sha256"`       // SHA-256 hash of the binary data
 	ContentID   string `json:"content_id"`   // Content-ID for inline images (cid:xxx)
 	IsInline    bool   `json:"is_inline"`    // True if inline attachment
 	Data        []byte `json:"-"`            // Binary data (not serialized to JSON)
