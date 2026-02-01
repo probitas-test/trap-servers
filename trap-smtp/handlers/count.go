@@ -22,7 +22,7 @@ func CountHandler(w http.ResponseWriter, r *http.Request) {
 		"count": len(entries),
 	})
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, "failed to marshal count response", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
