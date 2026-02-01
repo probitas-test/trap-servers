@@ -243,6 +243,39 @@ curl "http://localhost:8080/api/stats"
 }
 ```
 
+### GET /api/count
+
+Get the number of entries matching the filter criteria. Useful for quick
+assertions without fetching full entry data.
+
+**Query Parameters:**
+
+Same filter parameters as `GET /api/entries` (`from`, `from_regex`, `to`,
+`to_regex`, `subject`, `subject_regex`, `body`, `body_regex`, `jsonpath`,
+`jsonpath_value`, `header`, `header_value`, `since`, `until`). Pagination
+parameters (`limit`, `offset`) are ignored.
+
+**Request:**
+
+```bash
+# Count all entries
+curl "http://localhost:8080/api/count"
+
+# Count emails from a specific sender
+curl "http://localhost:8080/api/count?from=test@example.com"
+
+# Count with multiple filters
+curl "http://localhost:8080/api/count?from=alice&subject=welcome"
+```
+
+**Response:**
+
+```json
+{
+  "count": 3
+}
+```
+
 ### GET /api/events
 
 Server-Sent Events (SSE) stream for real-time email notifications.

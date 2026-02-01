@@ -249,6 +249,39 @@ curl "http://localhost:8080/api/stats"
 }
 ```
 
+### GET /api/count
+
+Get the number of entries matching the filter criteria. Useful for quick
+assertions without fetching full entry data.
+
+**Query Parameters:**
+
+Same filter parameters as `GET /api/entries` (`method`, `path`, `query`, `body`,
+`jsonpath`, `jsonpath_value`, `content_type`, `header`, `header_value`, `host`,
+`path_regex`, `query_regex`, `body_regex`, `content_type_regex`, `host_regex`,
+`since`, `until`). Pagination parameters (`limit`, `offset`) are ignored.
+
+**Request:**
+
+```bash
+# Count all entries
+curl "http://localhost:8080/api/count"
+
+# Count POST requests
+curl "http://localhost:8080/api/count?method=POST"
+
+# Count with multiple filters
+curl "http://localhost:8080/api/count?method=POST&path=payment"
+```
+
+**Response:**
+
+```json
+{
+  "count": 3
+}
+```
+
 ### GET /api/events
 
 Server-Sent Events (SSE) stream for real-time webhook notifications.

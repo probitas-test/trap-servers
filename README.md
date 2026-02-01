@@ -90,17 +90,18 @@ All servers are designed for testing purposes:
 
 Both servers provide the following endpoints:
 
-| Endpoint            | Method | Description                     |
-| ------------------- | ------ | ------------------------------- |
-| `/`                 | GET    | Web UI                          |
-| `/doc`              | GET    | API documentation (Markdown)    |
-| `/api/entries`      | GET    | List all entries (newest first) |
-| `/api/entries/{id}` | GET    | Get specific entry              |
-| `/api/entries/{id}` | DELETE | Delete specific entry           |
-| `/api/entries`      | DELETE | Clear all entries               |
-| `/api/stats`        | GET    | Store statistics                |
-| `/api/events`       | GET    | Server-Sent Events stream       |
-| `/health`           | GET    | Health check                    |
+| Endpoint            | Method | Description                      |
+| ------------------- | ------ | -------------------------------- |
+| `/`                 | GET    | Web UI                           |
+| `/doc`              | GET    | API documentation (Markdown)     |
+| `/api/entries`      | GET    | List all entries (newest first)  |
+| `/api/entries/{id}` | GET    | Get specific entry               |
+| `/api/entries/{id}` | DELETE | Delete specific entry            |
+| `/api/entries`      | DELETE | Clear all entries                |
+| `/api/stats`        | GET    | Store statistics                 |
+| `/api/count`        | GET    | Count entries matching filter    |
+| `/api/events`       | GET    | Server-Sent Events stream        |
+| `/health`           | GET    | Health check                     |
 
 ### Filtering
 

@@ -33,6 +33,7 @@ func main() {
 		r.Delete("/entries", handlers.ClearEntriesHandler)
 		r.Get("/stats", handlers.StatsHandler)
 		r.Get("/events", handlers.SSEHandler)
+		r.Get("/count", handlers.CountHandler)
 	})
 
 	// Webhook receiver - accepts any method on any path under /webhook/
