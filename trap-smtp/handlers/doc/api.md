@@ -276,6 +276,73 @@ curl "http://localhost:8080/api/count?from=alice&subject=welcome"
 }
 ```
 
+### GET /api/await
+
+Block until the specified number of entries match the filter criteria, or the
+timeout is reached. This eliminates the need for polling or `sleep` in tests.
+
+**Query Parameters:**
+
+| Parameter | Type   | Default | Description                                  |
+| --------- | ------ | ------- | -------------------------------------------- |
+| `count`   | int    | `1`     | Minimum number of matching entries to return |
+| `timeout` | string | `10s`   | Maximum wait duration (Go duration format)   |
+
+All email filter parameters (`from`, `to`, `subject`, `body`, `from_regex`,
+`to_regex`, `subject_regex`, `body_regex`, `jsonpath`, `jsonpath_value`,
+`header`, `header_value`, `since`, `until`) are also supported. Pagination
+parameters (`limit`, `offset`) are not supported.
+
+**Request:**
+
+```bash
+# Wait for 1 email from a specific sender (up to 5 seconds)
+curl "http://localhost:8080/api/await?from=test@example.com&timeout=5s"
+
+# Wait for 2 emails matching a subject pattern
+curl "http://localhost:8080/api/await?subject=welcome&count=2&timeout=10s"
+```
+
+**Success Response (200):**
+
+Returns all matching entries when the count threshold is met.
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "received_at": "2025-01-27T10:30:00Z",
+    "from": "test@example.com",
+    "to": ["recipient@example.com"],
+    "subject": "Welcome",
+    "body": "Hello!"
+  }
+]
+```
+
+**Timeout Response (408):**
+
+```json
+{
+  "error": "timeout",
+  "matched": 0,
+  "expected": 1
+}
+```
+
+**Test Example (using curl in a CI pipeline):**
+
+```bash
+# 1. Send an email to trap-smtp
+swaks --to test@example.com --from sender@example.com \
+      --server localhost:2525 --header "Subject: Order #123"
+
+# 2. Wait for the email to arrive and verify
+curl -sf "http://localhost:8080/api/await?subject=Order&timeout=5s" | \
+  jq '.[0].subject'
+# Output: "Order #123"
+```
+
 ### GET /api/events
 
 Server-Sent Events (SSE) stream for real-time email notifications.

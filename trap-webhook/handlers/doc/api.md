@@ -282,6 +282,72 @@ curl "http://localhost:8080/api/count?method=POST&path=payment"
 }
 ```
 
+### GET /api/await
+
+Block until the specified number of entries match the filter criteria, or the
+timeout is reached. This eliminates the need for polling or `sleep` in tests.
+
+**Query Parameters:**
+
+| Parameter | Type   | Default | Description                                  |
+| --------- | ------ | ------- | -------------------------------------------- |
+| `count`   | int    | `1`     | Minimum number of matching entries to return |
+| `timeout` | string | `10s`   | Maximum wait duration (Go duration format)   |
+
+All webhook filter parameters (`method`, `path`, `query`, `body`, `jsonpath`,
+`jsonpath_value`, `content_type`, `header`, `header_value`, `host`, `since`,
+`until`, `path_regex`, `query_regex`, `body_regex`, `content_type_regex`,
+`host_regex`) are also supported. Pagination parameters (`limit`, `offset`) are
+not supported.
+
+**Request:**
+
+```bash
+# Wait for 1 POST webhook (up to 5 seconds)
+curl "http://localhost:8080/api/await?method=POST&timeout=5s"
+
+# Wait for 2 webhooks to a specific path
+curl "http://localhost:8080/api/await?path=/webhook/payment&count=2&timeout=10s"
+```
+
+**Success Response (200):**
+
+Returns all matching entries when the count threshold is met.
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "received_at": "2025-01-27T10:30:00Z",
+    "method": "POST",
+    "path": "/webhook/payment",
+    "body": "{\"event\": \"payment.completed\"}"
+  }
+]
+```
+
+**Timeout Response (408):**
+
+```json
+{
+  "error": "timeout",
+  "matched": 0,
+  "expected": 1
+}
+```
+
+**Test Example (using curl in a CI pipeline):**
+
+```bash
+# 1. Trigger your app (which sends a webhook to trap-webhook)
+curl -X POST http://my-app/process-order
+
+# 2. Wait for the webhook to arrive and verify
+curl -sf "http://localhost:8080/api/await?path=/webhook/payment&timeout=5s" | \
+  jq '.[0].body | fromjson | .event'
+# Output: "payment.completed"
+```
+
 ### GET /api/events
 
 Server-Sent Events (SSE) stream for real-time webhook notifications.

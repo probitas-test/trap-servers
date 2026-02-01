@@ -100,6 +100,7 @@ Both servers provide the following endpoints:
 | `/api/entries`      | DELETE | Clear all entries                |
 | `/api/stats`        | GET    | Store statistics                 |
 | `/api/count`        | GET    | Count entries matching filter    |
+| `/api/await`        | GET    | Wait for entries matching filter |
 | `/api/events`       | GET    | Server-Sent Events stream        |
 | `/health`           | GET    | Health check                     |
 

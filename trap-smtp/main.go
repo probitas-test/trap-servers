@@ -74,6 +74,7 @@ func startHTTPServer(cfg *Config) {
 		r.Delete("/entries", handlers.ClearEntriesHandler)
 		r.Get("/stats", handlers.StatsHandler)
 		r.Get("/events", handlers.SSEHandler)
+		r.Get("/await", handlers.AwaitHandler)
 		r.Get("/count", handlers.CountHandler)
 	})
 
