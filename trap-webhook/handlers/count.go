@@ -26,5 +26,8 @@ func CountHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(resp)
+	if _, err := w.Write(resp); err != nil {
+		// Unable to write response; nothing more we can do here.
+		return
+	}
 }
