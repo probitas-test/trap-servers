@@ -51,9 +51,15 @@ func AwaitHandler(w http.ResponseWriter, r *http.Request) {
 	// Check existing entries
 	entries := webhookStore.ListWithFilter(filter)
 	if len(entries) >= count {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(entries); err != nil {
+		resp, err := json.Marshal(entries)
+		if err != nil {
 			http.Error(w, "Failed to encode entries", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write(resp); err != nil {
+			// Unable to write response; nothing more we can do here.
+			return
 		}
 		return
 	}
@@ -71,9 +77,15 @@ func AwaitHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			entries = webhookStore.ListWithFilter(filter)
 			if len(entries) >= count {
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(entries); err != nil {
+				resp, err := json.Marshal(entries)
+				if err != nil {
 					http.Error(w, "Failed to encode entries", http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				if _, err := w.Write(resp); err != nil {
+					// Unable to write response; nothing more we can do here.
+					return
 				}
 				return
 			}
