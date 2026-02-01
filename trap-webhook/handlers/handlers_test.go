@@ -225,6 +225,43 @@ func TestStatsHandler(t *testing.T) {
 	}
 }
 
+func TestListEntriesHandler_RegexFilter(t *testing.T) {
+	r, s := setupTestRouter()
+
+	s.Add(&store.WebhookEntry{Path: "/api/users"})
+	s.Add(&store.WebhookEntry{Path: "/api/webhooks/events"})
+	s.Add(&store.WebhookEntry{Path: "/api/users/123"})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/entries?path_regex=^/api/users", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var entries []*store.WebhookEntry
+	if err := json.NewDecoder(w.Body).Decode(&entries); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(entries) != 2 {
+		t.Errorf("len(entries) = %d, want 2", len(entries))
+	}
+}
+
+func TestListEntriesHandler_InvalidRegex(t *testing.T) {
+	r, _ := setupTestRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/entries?path_regex=[invalid", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
 func TestUIHandler(t *testing.T) {
 	r := chi.NewRouter()
 	r.Get("/", handlers.UIHandler)

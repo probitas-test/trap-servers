@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,6 +26,13 @@ type WebhookFilter struct {
 	Until         *time.Time // ReceivedAt before
 	Limit         int        // Max results (0 = no limit)
 	Offset        int        // Skip first N results
+
+	// Regex filters (compiled regular expressions)
+	PathRegex        *regexp.Regexp // Regex match on path
+	QueryRegex       *regexp.Regexp // Regex match on query string
+	BodyRegex        *regexp.Regexp // Regex match on body
+	ContentTypeRegex *regexp.Regexp // Regex match on content type
+	HostRegex        *regexp.Regexp // Regex match on host
 }
 
 // IsEmpty returns true if no filter criteria are set
@@ -38,7 +46,12 @@ func (f *WebhookFilter) IsEmpty() bool {
 		f.Header == "" &&
 		f.Host == "" &&
 		f.Since == nil &&
-		f.Until == nil
+		f.Until == nil &&
+		f.PathRegex == nil &&
+		f.QueryRegex == nil &&
+		f.BodyRegex == nil &&
+		f.ContentTypeRegex == nil &&
+		f.HostRegex == nil
 }
 
 // ListWithFilter returns entries matching the filter criteria
@@ -70,14 +83,23 @@ func matchesWebhookFilter(entry *WebhookEntry, filter *WebhookFilter) bool {
 	if filter.Path != "" && !containsIgnoreCase(entry.Path, filter.Path) {
 		return false
 	}
+	if filter.PathRegex != nil && !filter.PathRegex.MatchString(entry.Path) {
+		return false
+	}
 
 	// Query string filter
 	if filter.Query != "" && !containsIgnoreCase(entry.QueryString, filter.Query) {
 		return false
 	}
+	if filter.QueryRegex != nil && !filter.QueryRegex.MatchString(entry.QueryString) {
+		return false
+	}
 
 	// Body filter
 	if filter.Body != "" && !containsIgnoreCase(entry.Body, filter.Body) {
+		return false
+	}
+	if filter.BodyRegex != nil && !filter.BodyRegex.MatchString(entry.Body) {
 		return false
 	}
 
@@ -92,6 +114,9 @@ func matchesWebhookFilter(entry *WebhookEntry, filter *WebhookFilter) bool {
 	if filter.ContentType != "" && !containsIgnoreCase(entry.ContentType, filter.ContentType) {
 		return false
 	}
+	if filter.ContentTypeRegex != nil && !filter.ContentTypeRegex.MatchString(entry.ContentType) {
+		return false
+	}
 
 	// Header filter
 	if filter.Header != "" {
@@ -102,6 +127,9 @@ func matchesWebhookFilter(entry *WebhookEntry, filter *WebhookFilter) bool {
 
 	// Host filter
 	if filter.Host != "" && !containsIgnoreCase(entry.Host, filter.Host) {
+		return false
+	}
+	if filter.HostRegex != nil && !filter.HostRegex.MatchString(entry.Host) {
 		return false
 	}
 

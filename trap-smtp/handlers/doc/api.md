@@ -58,13 +58,18 @@ List all stored email entries with optional filtering.
 | `jsonpath_value` | string | Expected value at JSONPath         |
 | `header`         | string | Header name to check               |
 | `header_value`   | string | Header value contains match        |
+| `from_regex`     | string | Regex match on sender address      |
+| `to_regex`       | string | Regex match on any recipient       |
+| `subject_regex`  | string | Regex match on subject             |
+| `body_regex`     | string | Regex match on body                |
 | `since`          | string | ReceivedAt after (RFC3339 format)  |
 | `until`          | string | ReceivedAt before (RFC3339 format) |
 | `limit`          | int    | Maximum number of results          |
 | `offset`         | int    | Skip first N results               |
 
 > **Note:** All filters use AND logic. Empty filters return all entries
-> (backward compatible).
+> (backward compatible). Regex filters use Go's `regexp` syntax. Invalid regex
+> returns 400 Bad Request.
 
 **Request:**
 

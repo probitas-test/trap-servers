@@ -67,25 +67,31 @@ List all stored webhook entries with optional filtering.
 
 **Query Parameters:**
 
-| Parameter        | Type   | Description                                   |
-| ---------------- | ------ | --------------------------------------------- |
-| `method`         | string | Exact match on HTTP method (case-insensitive) |
-| `path`           | string | Contains match on request path                |
-| `query`          | string | Contains match on query string                |
-| `body`           | string | Contains match on request body                |
-| `jsonpath`       | string | JSONPath expression for JSON body             |
-| `jsonpath_value` | string | Expected value at JSONPath                    |
-| `content_type`   | string | Contains match on Content-Type                |
-| `header`         | string | Header name to check                          |
-| `header_value`   | string | Header value contains match                   |
-| `host`           | string | Contains match on Host header                 |
-| `since`          | string | ReceivedAt after (RFC3339 format)             |
-| `until`          | string | ReceivedAt before (RFC3339 format)            |
-| `limit`          | int    | Maximum number of results                     |
-| `offset`         | int    | Skip first N results                          |
+| Parameter            | Type   | Description                                   |
+| -------------------- | ------ | --------------------------------------------- |
+| `method`             | string | Exact match on HTTP method (case-insensitive) |
+| `path`               | string | Contains match on request path                |
+| `query`              | string | Contains match on query string                |
+| `body`               | string | Contains match on request body                |
+| `jsonpath`           | string | JSONPath expression for JSON body             |
+| `jsonpath_value`     | string | Expected value at JSONPath                    |
+| `content_type`       | string | Contains match on Content-Type                |
+| `header`             | string | Header name to check                          |
+| `header_value`       | string | Header value contains match                   |
+| `host`               | string | Contains match on Host header                 |
+| `path_regex`         | string | Regex match on request path                   |
+| `query_regex`        | string | Regex match on query string                   |
+| `body_regex`         | string | Regex match on request body                   |
+| `content_type_regex` | string | Regex match on Content-Type                   |
+| `host_regex`         | string | Regex match on Host header                    |
+| `since`              | string | ReceivedAt after (RFC3339 format)             |
+| `until`              | string | ReceivedAt before (RFC3339 format)            |
+| `limit`              | int    | Maximum number of results                     |
+| `offset`             | int    | Skip first N results                          |
 
 > **Note:** All filters use AND logic. Empty filters return all entries
-> (backward compatible).
+> (backward compatible). Regex filters use Go's `regexp` syntax. Invalid regex
+> returns 400 Bad Request.
 
 **Request:**
 

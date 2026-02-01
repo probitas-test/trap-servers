@@ -1,6 +1,7 @@
 package store
 
 import (
+	"regexp"
 	"testing"
 	"time"
 )
@@ -185,6 +186,41 @@ func TestStore_ListWithFilter(t *testing.T) {
 		{
 			name:      "no matches",
 			filter:    &EmailFilter{From: "nonexistent"},
+			wantCount: 0,
+		},
+		{
+			name:      "filter by from regex",
+			filter:    &EmailFilter{FromRegex: regexp.MustCompile(`^alice@`)},
+			wantCount: 1,
+			wantIDs:   []string{"1"},
+		},
+		{
+			name:      "filter by to regex (any recipient)",
+			filter:    &EmailFilter{ToRegex: regexp.MustCompile(`(admin|support)@`)},
+			wantCount: 1,
+			wantIDs:   []string{"2"},
+		},
+		{
+			name:      "filter by subject regex",
+			filter:    &EmailFilter{SubjectRegex: regexp.MustCompile(`^Re:`)},
+			wantCount: 1,
+			wantIDs:   []string{"3"},
+		},
+		{
+			name:      "filter by body regex",
+			filter:    &EmailFilter{BodyRegex: regexp.MustCompile(`"event":"\w+"`)},
+			wantCount: 1,
+			wantIDs:   []string{"2"},
+		},
+		{
+			name:      "regex combined with contains filter (AND logic)",
+			filter:    &EmailFilter{From: "example.com", SubjectRegex: regexp.MustCompile(`^Hello`)},
+			wantCount: 1,
+			wantIDs:   []string{"1"},
+		},
+		{
+			name:      "regex no match",
+			filter:    &EmailFilter{SubjectRegex: regexp.MustCompile(`^Goodbye`)},
 			wantCount: 0,
 		},
 	}

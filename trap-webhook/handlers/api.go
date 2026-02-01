@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -13,7 +15,11 @@ import (
 
 // ListEntriesHandler returns stored webhook entries with optional filtering
 func ListEntriesHandler(w http.ResponseWriter, r *http.Request) {
-	filter := parseWebhookFilter(r)
+	filter, err := parseWebhookFilter(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	entries := webhookStore.ListWithFilter(filter)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -23,7 +29,7 @@ func ListEntriesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // parseWebhookFilter extracts filter parameters from the request
-func parseWebhookFilter(r *http.Request) *store.WebhookFilter {
+func parseWebhookFilter(r *http.Request) (*store.WebhookFilter, error) {
 	q := r.URL.Query()
 
 	filter := &store.WebhookFilter{
@@ -37,6 +43,27 @@ func parseWebhookFilter(r *http.Request) *store.WebhookFilter {
 		Header:        q.Get("header"),
 		HeaderValue:   q.Get("header_value"),
 		Host:          q.Get("host"),
+	}
+
+	// Parse regex filters
+	regexFields := []struct {
+		param string
+		dest  **regexp.Regexp
+	}{
+		{"path_regex", &filter.PathRegex},
+		{"query_regex", &filter.QueryRegex},
+		{"body_regex", &filter.BodyRegex},
+		{"content_type_regex", &filter.ContentTypeRegex},
+		{"host_regex", &filter.HostRegex},
+	}
+	for _, rf := range regexFields {
+		if v := q.Get(rf.param); v != "" {
+			re, err := regexp.Compile(v)
+			if err != nil {
+				return nil, fmt.Errorf("invalid %s: %w", rf.param, err)
+			}
+			*rf.dest = re
+		}
 	}
 
 	// Parse time filters
@@ -63,7 +90,7 @@ func parseWebhookFilter(r *http.Request) *store.WebhookFilter {
 		}
 	}
 
-	return filter
+	return filter, nil
 }
 
 // GetEntryHandler returns a specific entry by ID
