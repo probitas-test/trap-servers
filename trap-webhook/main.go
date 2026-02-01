@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/probitas-test/state-servers/state-webhook/handlers"
-	"github.com/probitas-test/state-servers/state-webhook/store"
+	"github.com/probitas-test/state-servers/trap-webhook/handlers"
+	"github.com/probitas-test/state-servers/trap-webhook/store"
 )
 
 func main() {

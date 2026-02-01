@@ -17,7 +17,7 @@ import (
 	"github.com/emersion/go-smtp"
 	"github.com/google/uuid"
 
-	"github.com/probitas-test/state-servers/state-smtp/store"
+	"github.com/probitas-test/state-servers/trap-smtp/store"
 )
 
 // AuthConfig holds authentication settings

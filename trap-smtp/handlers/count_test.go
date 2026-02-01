@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/probitas-test/state-servers/state-smtp/handlers"
-	"github.com/probitas-test/state-servers/state-smtp/store"
+	"github.com/probitas-test/state-servers/trap-smtp/handlers"
+	"github.com/probitas-test/state-servers/trap-smtp/store"
 )
 
 func setupCountRouter() (*chi.Mux, *store.Store) {

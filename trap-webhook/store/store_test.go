@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/probitas-test/state-servers/state-webhook/store"
+	"github.com/probitas-test/state-servers/trap-webhook/store"
 )
 
 func TestStore_Add_And_Get(t *testing.T) {

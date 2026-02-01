@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/probitas-test/state-servers/state-smtp/store"
+	"github.com/probitas-test/state-servers/trap-smtp/store"
 )
 
 var emailStore *store.Store

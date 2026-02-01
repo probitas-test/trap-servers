@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/probitas-test/state-servers/state-webhook/store"
+	"github.com/probitas-test/state-servers/trap-webhook/store"
 )
 
 // ListEntriesHandler returns stored webhook entries with optional filtering

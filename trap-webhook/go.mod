@@ -1,4 +1,4 @@
-module github.com/probitas-test/state-servers/state-webhook
+module github.com/probitas-test/state-servers/trap-webhook
 
 go 1.25
 

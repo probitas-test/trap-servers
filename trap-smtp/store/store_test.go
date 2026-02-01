@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/probitas-test/state-servers/state-smtp/store"
+	"github.com/probitas-test/state-servers/trap-smtp/store"
 )
 
 func TestStore_Add_And_Get(t *testing.T) {
