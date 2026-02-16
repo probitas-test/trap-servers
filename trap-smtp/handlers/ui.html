@@ -456,8 +456,14 @@
                     }
                 });
             }
+            // Inject <base target="_blank"> so all links open in a new tab
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const base = doc.createElement('base');
+            base.target = '_blank';
+            doc.head.insertBefore(base, doc.head.firstChild);
+            html = doc.documentElement.outerHTML;
             const escapedHtml = html.replace(/"/g, '&quot;');
-            return `<iframe class="body-html" sandbox="" srcdoc="${escapedHtml}"></iframe>`;
+            return `<iframe class="body-html" sandbox="allow-popups" srcdoc="${escapedHtml}"></iframe>`;
         }
 
         function renderTextBody(entry) {
