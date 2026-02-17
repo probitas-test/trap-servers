@@ -463,7 +463,7 @@
             doc.head.insertBefore(base, doc.head.firstChild);
             html = doc.documentElement.outerHTML;
             const escapedHtml = html.replace(/"/g, '&quot;');
-            return `<iframe class="body-html" sandbox="allow-popups" srcdoc="${escapedHtml}"></iframe>`;
+            return `<iframe class="body-html" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${escapedHtml}"></iframe>`;
         }
 
         function renderTextBody(entry) {
