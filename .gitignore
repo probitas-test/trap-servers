@@ -1,5 +1,6 @@
 .DS_Store
 .worktrees
+/.claude/worktrees/
 
 # Nix
 result
@@ -11,6 +12,6 @@ trap-webhook/trap-webhook
 
 # Environment
 .env
-.envrc
+/.envrc
 
 .playwright-mcp/
