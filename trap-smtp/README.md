@@ -1,7 +1,7 @@
 # trap-smtp
 
-[![Build](https://github.com/probitas-test/state-servers/actions/workflows/build.trap-smtp.yml/badge.svg)](https://github.com/probitas-test/state-servers/actions/workflows/build.trap-smtp.yml)
-[![Docker](https://github.com/probitas-test/state-servers/actions/workflows/docker.trap-smtp.yml/badge.svg)](https://github.com/probitas-test/state-servers/actions/workflows/docker.trap-smtp.yml)
+[![Build](https://github.com/probitas-test/trap-servers/actions/workflows/build.trap-smtp.yml/badge.svg)](https://github.com/probitas-test/trap-servers/actions/workflows/build.trap-smtp.yml)
+[![Docker](https://github.com/probitas-test/trap-servers/actions/workflows/docker.trap-smtp.yml/badge.svg)](https://github.com/probitas-test/trap-servers/actions/workflows/docker.trap-smtp.yml)
 
 SMTP trap server that captures and stores received emails in-memory, providing a
 web interface for viewing them.

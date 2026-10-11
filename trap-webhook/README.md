@@ -1,7 +1,7 @@
 # trap-webhook
 
-[![Build](https://github.com/probitas-test/state-servers/actions/workflows/build.trap-webhook.yml/badge.svg)](https://github.com/probitas-test/state-servers/actions/workflows/build.trap-webhook.yml)
-[![Docker](https://github.com/probitas-test/state-servers/actions/workflows/docker.trap-webhook.yml/badge.svg)](https://github.com/probitas-test/state-servers/actions/workflows/docker.trap-webhook.yml)
+[![Build](https://github.com/probitas-test/trap-servers/actions/workflows/build.trap-webhook.yml/badge.svg)](https://github.com/probitas-test/trap-servers/actions/workflows/build.trap-webhook.yml)
+[![Docker](https://github.com/probitas-test/trap-servers/actions/workflows/docker.trap-webhook.yml/badge.svg)](https://github.com/probitas-test/trap-servers/actions/workflows/docker.trap-webhook.yml)
 
 Webhook trap server that captures and stores received HTTP requests in-memory,
 providing a web interface for viewing them.

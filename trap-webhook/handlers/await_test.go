@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/probitas-test/state-servers/trap-webhook/handlers"
-	"github.com/probitas-test/state-servers/trap-webhook/store"
+	"github.com/probitas-test/trap-servers/trap-webhook/handlers"
+	"github.com/probitas-test/trap-servers/trap-webhook/store"
 )
 
 func setupAwaitRouter() (*chi.Mux, *store.Store) {
