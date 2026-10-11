@@ -10,8 +10,8 @@ import (
 	"github.com/emersion/go-sasl"
 	gosmtp "github.com/emersion/go-smtp"
 
-	"github.com/probitas-test/state-servers/trap-smtp/smtp"
-	"github.com/probitas-test/state-servers/trap-smtp/store"
+	"github.com/probitas-test/trap-servers/trap-smtp/smtp"
+	"github.com/probitas-test/trap-servers/trap-smtp/store"
 )
 
 // noAuth returns an AuthConfig with no credentials (open relay mode)

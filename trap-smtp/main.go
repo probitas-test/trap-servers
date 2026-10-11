@@ -9,9 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/probitas-test/state-servers/trap-smtp/handlers"
-	smtpbackend "github.com/probitas-test/state-servers/trap-smtp/smtp"
-	"github.com/probitas-test/state-servers/trap-smtp/store"
+	"github.com/probitas-test/trap-servers/trap-smtp/handlers"
+	smtpbackend "github.com/probitas-test/trap-servers/trap-smtp/smtp"
+	"github.com/probitas-test/trap-servers/trap-smtp/store"
 )
 
 func main() {

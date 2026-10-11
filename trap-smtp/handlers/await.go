@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/probitas-test/state-servers/trap-smtp/store"
+	"github.com/probitas-test/trap-servers/trap-smtp/store"
 )
 
 // AwaitHandler blocks until the specified number of entries match the filter,
